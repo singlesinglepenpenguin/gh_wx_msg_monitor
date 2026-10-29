@@ -1,0 +1,34 @@
+{
+  "source": "https://github.com/Hedicx2020/gh_ui",
+  "files_sha256": {
+    "__init__.py": "c35d215d37afbc1166f4e2d0f33544fe3d3754f6e47cfae446586f56db2e6fd6",
+    "crypto.py": "65f767b9c9e8dbe6b92ceda78901efc29ca197ca6838abb09927d446a567b37a",
+    "messages.py": "c738895a18ecc9275fe0b86de8d93a56a661c1f2a71fdbc151f5b81f9677b843",
+    "key_scan.py": "8c92528ff5f614b67c4a70c9f149cbb9c70d08349e1dd824a9ecff3d05720e50",
+    "scanner_mac.py": "ac1977e9172bf4bb025f5e7df2c8396009a14d1799fe3d5b290ef52052273f52",
+    "_mac_helper.py": "bfd2b10a9df08d804e697ed3894211c1ffa630641bdc5038d26caec05cfe5f86",
+    "_mac_lldb_capture.py": "f7408d28412fcbadb21d27d37a1334239a29627d7b8313b683cd767c9fe03ffc",
+    "scanner_win.py": "bc7408702fca6b25398461bcb1a9c9fdc8357aa34cd3561de20b10eadd4664f8",
+    "active_key.py": "6a6ac18cc7a2bcd776932e327fae368194026eec3ac5564a7a627c0c25de76ce"
+  },
+  "changes": [
+    {
+      "file": "scanner_mac.py",
+      "scope": "extract_keys command argument quoting only",
+      "reason": "Prevent literal double quotes in helper and database paths; same authorization, helper, scan flags and trigger flow.",
+      "sha256": "dd2bf482c28351923796a682345c247846437e40114d42426698d2aaae71e137"
+    },
+    {
+      "file": "_mac_lldb_capture.py",
+      "scope": "diagnostic output only",
+      "reason": "Report Continue status, architecture and native breakpoint hit counts; same attach, symbols, callbacks and capture window.",
+      "sha256": "136f11d16991414e3d3d14fddc0de730386ef74f238c92c9d861405feea04c85"
+    },
+    {
+      "file": "messages.py",
+      "scope": "optional complete query output, raw sender-prefix display compatibility, and log callback; defaults preserved",
+      "reason": "Keep upstream selection, decoding, authorization and capture triggers. full_content avoids the 500-character output summary. Optional sender_from_raw_prefix restores group-card sender from the existing raw prefix before formatting discards it; real_sender_id does not necessarily equal contact.id. Default sender behavior remains unchanged. on_log receives decrypt warnings without patching globals. With the option enabled, a missing raw prefix is shown as unverified rather than guessing from contact.id.",
+      "sha256": "d5b8b8b26ffdfcb6c0e1e68ff0c53363f84c6edf103abcbbc2630ab876678c72"
+    }
+  ]
+}
