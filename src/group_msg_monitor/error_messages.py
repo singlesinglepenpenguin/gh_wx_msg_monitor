@@ -66,6 +66,12 @@ def error_message(exc):
     if 'NO_WECHAT' in text or '微信未运行' in text:
         return ('WECHAT_NOT_RUNNING', '没有检测到运行中的微信。',
                 '打开并登录目标账号，确认能看到目标群，再点“测试群连接”。已有凭据时无需再次抓取。')
+    if os.name == 'nt' and ('access is denied' in lower or '拒绝访问' in text or '5' == text.strip() or 'winerror 5' in lower):
+        return ('WINDOWS_ADMIN', 'Windows 拒绝读取微信进程内存。',
+                '以管理员身份运行 start.bat（或管理员 PowerShell 启动本工具），保持微信已登录后，在“微信连接设置 → 高级维护”执行普通初始化。不要用 Mac 的签名修复步骤。')
+    if os.name == 'nt' and ('access is denied' in lower or '拒绝访问' in text or '5' == text.strip() or 'winerror 5' in lower):
+        return ('WINDOWS_ADMIN', 'Windows 拒绝读取微信进程内存。',
+                '以管理员身份运行 start.bat（或管理员 PowerShell 启动本工具），保持微信已登录后，在“微信连接设置 → 高级维护”执行普通初始化。不要用 Mac 的签名修复步骤。')
     if 'NO_LLDB' in text:
         return ('DEBUGGER_MISSING', '新版初始化所需的系统调试工具未安装。',
                 '按原版错误提示安装 Xcode Command Line Tools；已有有效凭据的日常更新不使用调试器。')

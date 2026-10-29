@@ -75,8 +75,12 @@ def main():
                 print(label + ': ' + ('PASS' if result.returncode == 0 else 'FAIL'), flush=True)
                 if result.returncode:
                     raise RuntimeError(label + ' failed; see clean_' + label + '.log')
-            run('setup', ['/bin/zsh', './setup.command'])
-            python = str(source / '.venv/bin/python')
+            if os.name == 'nt':
+                run('setup', ['cmd.exe', '/c', 'setup.bat'], timeout=300)
+                python = str(source / '.venv' / 'Scripts' / 'python.exe')
+            else:
+                run('setup', ['/bin/zsh', './setup.command'])
+                python = str(source / '.venv/bin/python')
             env['PYTHONPATH'] = str(source / 'src')
             run('isolation', [python, '-c',
                 'import sys; assert sys.prefix != sys.base_prefix; '

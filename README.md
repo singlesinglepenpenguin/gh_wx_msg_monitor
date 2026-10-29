@@ -2,7 +2,11 @@
 
 读取微信群接龙，按机构和姓名清空 Excel 对应单元格，每轮另存带北京时间的新版本。
 
-macOS 源码首次使用：安装带 Tkinter 的 Python 3.10 或更新版本，双击 **setup.command** 安装依赖（需要联网），成功后双击 **start.command**。以后只需 start.command。请将完整项目放在自己可写的文件夹，不能只复制 src 或安装普通 wheel；上游代码及辅助脚本在 vendor。
+macOS 源码首次使用：安装带 Tkinter 的 Python 3.10 或更新版本，双击 **setup.command** 安装依赖（需要联网），成功后双击 **start.command**。以后只需 start.command。
+
+Windows 源码使用：安装带 Tkinter 的 Python 3.10 或更新版本后，**日常只需双击 start.bat**。首次若尚无 `.venv`，`start.bat` 会自动调用 `setup.bat` 联网安装依赖（`requirements.txt`：openpyxl / pycryptodome / zstandard；PyPI 失败会改用清华镜像）。也可单独双击 `setup.bat` 重装环境，对应 macOS 的 `setup.command`。初始化微信密钥若提示拒绝访问进程，请以管理员身份运行 `start.bat`。当前源码分发入口为 `.bat`（与 macOS `.command` 对等）；`scripts/package_app.py` 可在目标机打成 `GroupMessageMonitor.exe`，本轮以源码 bat 入口交付。
+
+请将完整项目放在自己可写的文件夹，不能只复制 src 或安装普通 wheel；上游代码及辅助脚本在 vendor。
 
 在新电脑选择自己的通讯录和更新基准，再按“微信连接设置”完成该电脑的一次性初始化。不会随源码提供原用户的表格、微信凭据或历史配置。已有有效凭据时微信保持登录即可。当前不重新打包。
 
@@ -20,8 +24,8 @@ data/
    records/             每轮明细、备份、update_YYYYMMDD_HHMMSS.txt
    local_data/          本机凭据、偏好、可再生缓存
    diagnostics/         排错手册、日志与历史压缩档
-start.command           唯一日常启动入口
-setup.command           首次安装源码环境
+start.command / start.bat   日常启动入口（macOS / Windows）
+setup.command / setup.bat   首次安装源码环境（macOS / Windows）
 pyproject.toml          Python 包配置
 requirements.txt        运行依赖版本
 ```
@@ -39,9 +43,15 @@ Excel 文件名可以是中文；其他文件名及所有文件夹名使用英�
 ## Development
 
 ```sh
+# macOS
 PYTHONPATH=src .venv/bin/python -m group_msg_monitor
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
 .venv/bin/python scripts/check_layout.py
+
+# Windows (PowerShell)
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m group_msg_monitor
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m unittest discover -s tests
+.\.venv\Scripts\python.exe scripts\check_layout.py
 ```
 
 脚本：scripts/capture_ui.py 只截图本工具窗口；scripts/export_report.py 导出当前报告；scripts/verify_reference.py 使用参考表副本做验证；scripts/package_app.py 留待目标系统打包，本轮未运行。未来可分发的打包文件名为 GroupMessageMonitor。

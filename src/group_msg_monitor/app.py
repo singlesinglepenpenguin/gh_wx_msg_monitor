@@ -384,14 +384,21 @@ class App(tk.Tk):
             if self.connection_ok and directory == current:
                 messagebox.showinfo('无需初始化', '当前微信已可读取，直接回主界面点“开始更新”即可。', parent=window)
                 return
-            if capture and not messagebox.askyesno('一次性获取新版微信密钥', '沿用 gh_ui 的一次性调试器抓取，可能触发微信安全验证。仅在普通初始化无结果时使用。启动后请打开会话、滚动消息触发读取。是否继续？', parent=window):
-                return
+            if capture:
+                if sys.platform == 'darwin':
+                    prompt = '沿用 gh_ui 的一次性调试器抓取，可能触发微信安全验证。仅在普通初始化无结果时使用。启动后请打开会话、滚动消息触发读取。是否继续？'
+                else:
+                    prompt = ('沿用 gh_ui 的 Windows 调试器抓取。请先完全退出微信（任务栏图标 → 退出），'
+                              '确认无 Weixin.exe 后继续；将弹出新的微信窗口供登录，建议使用小号。是否继续？')
+                if not messagebox.askyesno('一次性获取新版微信密钥', prompt, parent=window):
+                    return
             self._work(lambda: initialize(directory, self.local_dir, self._log, capture=capture), 'initialized', '新版微信一次性初始化' if capture else '普通初始化')
         ttk.Label(advanced, text='首次没有凭据：先尝试普通初始化。').pack(anchor='w', pady=(12, 4))
         ttk.Button(advanced, text='普通初始化', command=init).pack(anchor='w')
-        if sys.platform == 'darwin':
-            ttk.Label(advanced, text='普通扫描无结果：才使用一次性新版初始化。').pack(anchor='w', pady=(12, 4))
+        if sys.platform == 'darwin' or os.name == 'nt':
+            ttk.Label(advanced, text='普通扫描无结果：才使用一次性新版初始化。' + (' Windows 微信 4.1+ 通常需要这一步。' if os.name == 'nt' else ''), wraplength=850).pack(anchor='w', pady=(12, 4))
             ttk.Button(advanced, text='新版微信初始化', command=lambda: init(True)).pack(anchor='w')
+        if sys.platform == 'darwin':
             def repair():
                 if self.connection_ok:
                     messagebox.showinfo('无需修复', '当前微信已可读取，无需修改读取权限。', parent=window)

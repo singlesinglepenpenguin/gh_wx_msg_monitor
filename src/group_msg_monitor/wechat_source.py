@@ -86,8 +86,49 @@ def import_gh_config(config_dir, local_dir):
     if not keys:
         raise ValueError('所选 gh_ui 配置尚未保存可用密钥。')
     atomic_json(local_dir / 'wechat.json', {'db_dir': db_dir, 'keys': keys})
-    (local_dir / 'wechat.json').chmod(0o600)
+    _protect_credentials(local_dir / 'wechat.json')
     return db_dir
+
+
+def _windows_text_scan_keys(db_dir, log=lambda s: None):
+    """Windows 普通初始化：只做上游文本模式扫描，跳过极慢的 raw 全内存扫描。
+
+    微信 4.1+ 文本模式常为 0 命中，应改用 extract_keys_active；不在此改写 vendor。
+    """
+    import ctypes
+    from wechat_native.key_scan import collect_db_files, scan_buffer
+    from wechat_native.scanner_win import (
+        PROC_ACCESS, _enum_regions, _kernel32, _list_weixin_pids, _read_mem,
+    )
+
+    db_files, salt_map = collect_db_files(db_dir)
+    if not salt_map:
+        raise RuntimeError(f'未在 {db_dir} 找到任何 .db 文件')
+    pids = _list_weixin_pids()
+    if not pids:
+        raise RuntimeError('Weixin.exe 未运行, 请先打开并登录微信')
+    log(f'Windows 文本扫描：{len(db_files)} 个库，{len(pids)} 个 Weixin.exe 进程')
+    key_map = {}
+    remaining = set(salt_map.keys())
+    k = _kernel32()
+    for pid, _mem in pids:
+        handle = k.OpenProcess(PROC_ACCESS, False, pid)
+        if not handle:
+            log(f'[WARN] OpenProcess({pid}) 失败 (errno={ctypes.get_last_error()})')
+            continue
+        try:
+            for base, size in _enum_regions(handle):
+                buf = _read_mem(handle, base, size)
+                if buf:
+                    scan_buffer(buf, db_files, salt_map, key_map, remaining)
+                if not remaining:
+                    break
+        finally:
+            k.CloseHandle(handle)
+        if not remaining:
+            break
+    log(f'文本扫描结束：命中 {len(key_map)}/{len(salt_map)}')
+    return key_map
 
 
 def initialize(db_dir, local_dir, log=lambda s: None, *, capture=False):
@@ -95,30 +136,37 @@ def initialize(db_dir, local_dir, log=lambda s: None, *, capture=False):
         raise ValueError('请先选择微信账号的数据目录。')
     if sys.platform == 'darwin':
         from wechat_native.scanner_mac import extract_keys
-    elif os.name == 'nt':
-        from wechat_native.scanner_win import extract_keys
-    else:
+    elif os.name != 'nt':
         raise ValueError('微信读取目前支持 macOS 和 Windows。')
     # 上游日志可能含候选密钥，仅显示阶段，不转发内容到运营日志。
     log('正在调用 gh_ui 微信读取初始化，系统可能显示管理员授权窗口。')
     if capture:
-        if sys.platform != 'darwin':
-            raise ValueError('此初始化入口仅适用于 Mac。')
-        from wechat_native.scanner_mac import extract_db_keys_lldb
-        from wechat_native.key_scan import keys_from_enc_candidates
-        log('请在微信中打开目标群、滚动聊天，触发数据库读取（约 40 秒）。')
-        passphrase, candidates = extract_db_keys_lldb(timeout=40)
-        keys = keys_from_passphrase(bytes.fromhex(passphrase), db_dir) if passphrase else {}
-        if candidates:
-            keys.update(keys_from_enc_candidates(candidates, db_dir))
+        if sys.platform == 'darwin':
+            from wechat_native.scanner_mac import extract_db_keys_lldb
+            from wechat_native.key_scan import keys_from_enc_candidates
+            log('请在微信中打开目标群、滚动聊天，触发数据库读取（约 40 秒）。')
+            passphrase, candidates = extract_db_keys_lldb(timeout=40)
+            keys = keys_from_passphrase(bytes.fromhex(passphrase), db_dir) if passphrase else {}
+            if candidates:
+                keys.update(keys_from_enc_candidates(candidates, db_dir))
+        else:
+            from wechat_native.scanner_win import extract_keys_active
+            log('Windows 新版初始化：请先完全退出微信，再按提示在调试实例中登录（建议小号）。')
+            keys = extract_keys_active(db_dir, on_log=lambda msg: log(str(msg)))
     else:
         try:
-            keys = extract_keys(db_dir)
+            if sys.platform == 'darwin':
+                from wechat_native.scanner_mac import extract_keys
+                keys = extract_keys(db_dir)
+            else:
+                keys = _windows_text_scan_keys(db_dir, log)
         except RuntimeError as exc:
             if '-2740' in str(exc):
                 raise ValueError('当前运行环境无法调用 macOS 系统授权（AppleScript -2740）。请从 Finder 双击本地工具后重试初始化。') from exc
             raise
     if not keys:
+        if sys.platform != 'darwin' and not capture:
+            raise ValueError('普通文本扫描未取得密钥（常见于微信 4.1+）。请完全退出微信后，使用“新版微信初始化”；本次未修改目标 Excel。')
         raise ValueError('现有扫描未取得密钥。请查看“连接微信”里的初始化说明；本次未修改目标 Excel。')
     config_path = Path(local_dir) / 'wechat.json'
     if config_path.exists():
@@ -126,9 +174,17 @@ def initialize(db_dir, local_dir, log=lambda s: None, *, capture=False):
         if old.get('db_dir') == str(db_dir):
             keys = {**old.get('keys', {}), **keys}
     atomic_json(config_path, {'db_dir': str(db_dir), 'keys': keys})
-    (Path(local_dir) / 'wechat.json').chmod(0o600)
+    _protect_credentials(config_path)
     log(f'已保存 {len(keys)} 个数据库的读取凭据。')
     return len(keys)
+
+
+def _protect_credentials(path):
+    """Best-effort owner-only mode; Windows may ignore Unix permission bits."""
+    try:
+        Path(path).chmod(0o600)
+    except OSError:
+        pass
 
 
 def repair_mac_permission():

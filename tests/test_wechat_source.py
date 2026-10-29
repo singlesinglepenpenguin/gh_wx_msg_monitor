@@ -28,9 +28,30 @@ def sql_quote(value):
     return "'" + str(value).replace("'", "''") + "'"
 
 
+def _sqlite3_library():
+    """Locate a native sqlite3 shared library for SQLCipher-page fixtures.
+
+    Windows Python usually ships only `_sqlite3.pyd`, so find_library may return
+    None; probe common DLL locations before skipping the encrypted-db tests.
+    """
+    name = ctypes.util.find_library('sqlite3')
+    candidates = [Path(name)] if name else []
+    roots = [Path(sys.base_prefix), Path(sys.prefix), Path(sys.executable).resolve().parent]
+    for root in roots:
+        candidates.extend([
+            root / 'sqlite3.dll',
+            root / 'DLLs' / 'sqlite3.dll',
+            root / 'Library' / 'bin' / 'sqlite3.dll',
+        ])
+    for path in candidates:
+        if path and path.is_file():
+            return ctypes.CDLL(str(path))
+    raise unittest.SkipTest('native sqlite3 shared library not found; encrypted DB fixtures need it on Windows')
+
+
 def plaintext_database(path, statements):
     """生成和 SQLCipher 相同的 4096 页/80 保留字节 SQLite 测试库。"""
-    lib = ctypes.CDLL(ctypes.util.find_library('sqlite3'))
+    lib = _sqlite3_library()
     lib.sqlite3_open.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p)]
     lib.sqlite3_file_control.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_void_p]
     lib.sqlite3_exec.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p)]
@@ -82,7 +103,8 @@ def encrypted_wal(plain, path, key, salt):
 
 class WeChatSourceTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        # Windows may keep decrypted SQLite handles briefly; ignore cleanup races.
+        self.temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.db_dir = self.root / 'db_storage'

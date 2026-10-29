@@ -1,5 +1,16 @@
 # Fresh source environment: missing virtual environment
 
+## Windows 源码启动与 4.1+ 初始化（2026-10-29）
+
+- 原始错误条件：本机仅有 macOS 的 `setup.command` / `start.command`；Windows 无法双击安装与启动。另：对已登录的微信 4.1+ 调用上游 `extract_keys` 全文+raw 扫描时，文本模式 0 命中后 raw 扫描约 0.05MB/s，全进程内存可达数小时仍无结果，界面表现为长时间无响应。
+- 出错阶段：首次安装入口；微信连接设置 → 普通初始化。
+- 已证实原因：启动脚本为 zsh；本机 PyPI 直连 SSL 失败需镜像；当前微信进程为 Weixin.exe 且账号目录可自动发现；文本扫描可在数秒内结束且 0 命中，说明需走 `extract_keys_active`，而不是继续 raw。
+- 尚未确认：本机管理员调试器抓取是否一次成功、是否触发微信风控（需用户完全退出微信后手动验证）。
+- 处理步骤：新增 `setup.bat` / `start.bat`（pip 失败时改用清华镜像）；Windows 普通初始化改为仅文本扫描并明确提示改用“新版微信初始化”；界面在 Windows 显示该按钮并说明须先退出微信。
+- 验证结果：`--check-runtime` 通过；GUI 可启动；`discover_accounts` 找到本机两个 `db_storage`；文本扫描约数秒结束并给出改用新版初始化的错误文案。加密库相关单测因本机无独立 `sqlite3.dll` 跳过，其余回归通过。
+
+---
+
 - 原始错误条件：直接将源码复制到没有 `.venv` 的目录后，旧 `start.command` 执行 `.venv/bin/python`；文件不存在时无法启动。本项为源码检查确认的首次安装缺口，不是微信故障。
 - 出错阶段：Python 环境准备，尚未连接微信。
 - 已证实原因：旧启动入口依赖开发电脑已安装的虚拟环境，未提供首次安装入口。
