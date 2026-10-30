@@ -1,5 +1,16 @@
 # Fresh source environment: missing virtual environment
 
+## Windows 两个 bat 与无密钥 GUI 冷启动（2026-10-30）
+
+- 目标与初始状态：面向不会使用 AI 的客户，将首次检查/连接收敛到 setup.bat，日常使用收敛到 start.bat 和 GUI。实际将源项目 `data/local_data/wechat.json` 移出运行位置保存为私有备份；另行解压全新 Windows 包，无工具凭据、配置或解密缓存；PATH 移除系统 Python。旧凭据没有复制到测试包。范围是同一台 Windows 的独立交付目录，不是另一台机器或新装操作系统。
+- 新卡点 1，原始错误：首次真实点击 GUI 连接后，报 `WIN_ACTIVE_FAILED: No script transcript was produced`，回退报 `Weixin.exe 未运行, 请先打开并登录微信`。阶段是上游 PowerShell 脚本启动，尚未生成凭据。已证实测试 PATH 裁减后缺少系统 PowerShell 所在子目录；上游使用裸 `powershell.exe` 名称查找，依赖检查只导入 Python 模块不能覆盖此条件。处理：setup.bat/start.bat 显式补入 `%SystemRoot%/System32/WindowsPowerShell/v1.0`，不改上游脚本、触发、授权和采集方式。用户处理编号 `WIN_SCRIPT_START`，建议从完整包的两个入口启动并保留原始启动错误。不能把所有无 transcript 的错误都认定为同一原因，UAC 取消/脚本路径错误仍须按日志核实。
+- 新卡点 2，原始错误：Windows Restart Manager 的正常退出请求返回 `351`。只检查返回码会误报失败；实测随后微信进程已正常退出。处理：仅注册确定为微信的主进程，用参数 0 请求正常关闭，不使用 force、TerminateProcess 或 taskkill；等待并复查上游进程列表，确认所有微信进程退出后才启动原版初始化。若仍未退出，向导显示微信托盘正常退出的 GUI 步骤并自动等待。对应 `WIN_EXIT_REQUIRED`。尚未确认其他版本是否都接受 OS 正常退出请求，保留明确的拒绝/超时处理。
+- 账号识别：用 Windows 文件占用信息确认哪个已知账号数据库被微信进程打开，不读取密钥，不按目录排序/修改时间猜选。无明确当前账号时要求先在 GUI 打开并登录微信再识别；多个候选不静默选择。Windows 无本工具凭据时不再静默导入别处 gh_ui 凭据，避免把冷启动误报为重新取钥成功。
+- 冷启动真实结果：2026-10-30 09:29，由 setup.bat 打开的实际 GUI 按钮触发一次性取钥；微信正常退出后自动继续，4.1.15.56 版本 32/32 库 HMAC 校验通过并保存新凭据，目标群核验通过。此过程中未使用命令行初始化、未手工传密钥、未复制旧配置。客户端版本来自正常启动后的自动更新，本次未改微信程序或用户数据库。
+- 日常真实结果：关闭后只用 start.bat 启动，凭据复用，日志初始化次数仍为 1。当天时段读到 5 条真实接龙并另存 Excel/TXT；清空 0 格，5 条机构未匹配记录合并为 3 项待核对，原始参考表哈希不变。此前 29 格清空属于另一次历史时段验收，不能混记。
+- 界面完善：连接向导显示识别/等待/校验/完成状态和耗时；有效凭据阻止重复取钥；完成后正常打开微信供日常同步。定时勾选状态已保存，实际关闭再通过 start.bat 重启后保持勾选。原有 upstream 初始化、解密与群查询流程保持不变。
+- 证据与交付：`cold_setup_validation.json`、`cold_setup_success.png`、`cold_start_monitoring_success.png`；首次失败留在独立目录。新凭据在验收成功后才复制回源码运行目录以保持本机可用，旧备份未用于测试。`dist/GroupMessageMonitor_windows.zip` 已检查不含运行 data、密钥、缓存或 Excel；客户完整解压后只需使用 setup.bat / start.bat，内置 Python/Tk/读取依赖。详见 `docs/windows_setup_flow.md`。
+
 ## Windows 真实验收通过（2026-10-30，当前账号）
 
 - 后续独立只读复核：继续复用保存的 32 个凭据，未重新初始化，正常登录的微信保持运行；1715 个会话中唯一定位目标群并读取 24 条真实接龙，最长正文 773 字。数量随微信同步增加，与 08:57 的 GUI 验收不是同一次查询。
@@ -336,3 +347,55 @@ TXT：每轮独立写 data/records/update_YYYYMMDD_HHMMSS.txt，时间/同秒版
 19 格为汇丰晋信 11 格、富国 8 格；“删除公式”也计入清空，不等于原公式都显示有客户。72 条待核对记录含重复，核对报告已合并为 9 项，均为通讯录或姓名列匹配问题，没有机构未匹配。
 
 两个 reference 文件均未改动，其他 100 个工作簿 ZIP 成员逐字节保留。运营持续更新文件、更新前副本、进度、归档与核对报告已分别保存，见 `docs/运营使用说明.md`。
+
+
+## 2026-10-30 Customer reset: protected diagnostic log
+
+- Stage: removing local runtime data for a clean customer handoff.
+- Original error: `Remove-Item ... data\diagnostics\attach_key_console.log: Access to the path is denied` (`RemoveFileSystemItemArgumentError`).
+- Confirmed cause: the normal-permission cleanup process could not delete this diagnostic file; the same scoped cleanup succeeded with elevated permission.
+- Unconfirmed: the exact owner/ACL origin was not inspected; creation by an earlier elevated initialization is a possibility.
+- Handling: resolved every cleanup target under this project's absolute `data` directory, retained only `diagnostics/README.txt` and `diagnostics/error_message.md`, then completed deletion with elevated permission. No upstream connection or collection behavior changed.
+- Verification: all local credentials, decrypted databases, preferences, update outputs, records, backups, reference copies, validation artifacts, cached installer and transient diagnostics were removed. Source and packaged vendor hashes matched recorded upstream/authorized patches. The customer ZIP contained no runtime data, credentials, chat databases or business workbooks, and passed ZIP integrity validation.
+- Scope: project-local reset only; the installed WeChat client's login and original chat files were untouched. Customer setup must perform its own one-time credential initialization; daily reading can reuse valid credentials with WeChat kept logged in.
+
+
+## 2026-10-30 Explicit first-connection account identification and reset
+
+- Reported behavior: an account appeared in the first-connection picker after resetting tool data.
+- Confirmed causes: the picker scheduled live account discovery on opening and selected a uniquely identified local account; subsequent user testing also recreated local credentials, decrypted caches and update records. Identifying a local account alone is not successful key initialization.
+- Handling: an unconnected Windows setup now opens with an empty account picker and waits for the explicit identify button. Already verified connections retain their daily-use behavior. Upstream authorization, initialization and collection remain unchanged. Both reference directories are excluded from reset and recorded as protected user test inputs in AGENTS.md.
+- Verification: 25 workbook workflow tests and 5 Windows connection tests passed using constructed data/mocks, including a consecutive-update check that adds an institution and removes another. These checks do not claim real WeChat reading success.
+- Cleanup blocker: `RemoveFileSystemItemIOError` while deleting `data/output/~$...xlsx`: the file is in use by another process. The user was asked to close the generated workbook, preserving any wanted edits first. No forced Excel termination or unsaved-edit discard was attempted. Pending deletion is verified separately after release.
+
+
+## 2026-10-30 Institution mismatch in the 10:39:50 update
+
+- Original symptom: 11 relay messages, zero cleared/empty cells, and unmatched details containing Friday and a bowing emoji alongside institution names.
+- Stage: business institution matching and TXT reporting, after message acquisition.
+- Confirmed cause of zero changes: the exact source workbook's Sheet1 has only eight institution rows (Penghua, Invesco Great Wall, China Life Pension, BOCOM Schroder, Harvest, China Post, Cinda Australia and Huatai Baoxing). It lacks Fuguo, Guolian An and CCB Principal/Jianxin, the institutions named in these 11 saved messages. The labels in institution_match_review.json are authoritative.
+- Confirmed reporting defect: TITLE.findall previously scanned every line before the numbered entries, so instruction/date and emoji brackets appeared as unmatched institutions. This could also incorrectly redirect an unknown title to a known institution mentioned in instructions.
+- Handling: bracket matching is now limited to the first substantive heading line; unbracketed headings still match full target labels. Unmatched reports retain the title, show the actual institution-column snapshot and include INSTITUTION_MATCH guidance. Unknown or ambiguous institutions still produce no cell changes and remain pending for later review. No institutions were automatically added to user workbooks.
+- Verification: replayed the 11 real messages already archived in details.json, without connecting to WeChat. The actual table still produces zero planned cells. Adding the three missing rows only to an in-memory target mapping produces 100 planned cells and zero institution mismatches (37 Fuguo, 22 Guolian An, 41 Jianxin). This is a matching probe, not an Excel deletion count or a new live-read success. Source workbook, original reference workbooks and original details.json hashes were unchanged.
+- Unconfirmed: why these three institutions are absent from the user's baseline; no assumption was made about whether the baseline or the requested time interval should change.
+- Follow-up: select the desired baseline, add missing institution rows only if intended, save and close Excel, then update. Pending relay evidence can be reviewed again without repeating key initialization. Error guidance: INSTITUTION_MATCH in src/group_msg_monitor/error_messages.py.
+- Review artifact: data/diagnostics/institution_match_review.json. Regression cases cover body-only bracket noise, body institution mentions, and preserving unmatched messages.
+
+
+## 2026-10-30 Subject identity redesign and customer handoff reset
+
+- Root design error: treating formatting tokens as entities and filtering candidates through the target workbook before determining the relay subject conflated message meaning with table membership. Limiting extraction to the first line alone did not address competing subjects or conflicting evidence.
+- Change: institution_match.py separates subject-role scopes (subject position or explicit institution fields), identity evidence, and row resolution. It returns matched/missing/ambiguous/unrecognized, with original scope, role, candidate and target identities. Body references never authorize updates. Brackets alone never create institution evidence. Unknown/competing subjects are retained instead of selecting the only institution present in Excel. Unsupported free-form language is left for review, not guessed.
+- Update permission: only one resolved identity with no competing or untyped subject permits cell planning. Existing per-run Excel reread, full-name checks, pending review, audit and immutable-original workbook handling remain in force. Upstream connection/authorization/collection files are unchanged.
+- New-client behavior: no credentials means no automatic connection check, no startup error log for an expected first-run state, and an empty account picker until explicit identification. Valid saved credentials retain daily operation without key recapture.
+- Regression result: 86 tests ran, 84 passed and 2 were platform-skipped. Adversarial tests cover typography/body invariance, removed rows, mixed known/unknown joint subjects, explicit fields, conflicting fields, name boundaries and date-only headings.
+- Offline real-evidence replay before reset: the 11 archived messages were all classified missing with zero planned cells for the actual source table. In-memory addition of the three absent institution rows produced 100 planned cells and no unresolved institution messages. This was neither an Excel deletion run nor new live WeChat access. Reference and source workbook hashes were unchanged.
+- Customer reset scope: remove all runtime credentials, keys, decrypted caches, preferences, progress, outputs, records, backups, replay artifacts and transient diagnostics inside this project. Preserve reference/ and data/reference/ test Excel files, plus this static diagnostic guide and README.txt. The installed WeChat client's own original files are outside this reset.
+- Validation boundary: first-run GUI, binary dependencies, upstream hashes and archive cleanliness are checked separately from real key initialization and message reading. Customer instructions in docs/user_manual.md describe the required one-time initialization and a meaningful actual-cell-change test.
+
+
+### Final clean handoff verification
+
+- Real source GUI acceptance passed after runtime reset: account picker and file selections empty, automatic updates disabled, no saved result, no credentials or decrypted cache created. The test did not initialize or read WeChat.
+- Binary dependency verification and source/bundled upstream fingerprint checks passed during packaging. Customer archive excludes runtime data and business workbooks; the two original reference workbook hashes are unchanged.
+- Additional maintenance error: ordinary cleanup of vendor/wechat_native/__pycache__/win_key_race.cpython-312.pyc returned access denied (RemoveFileSystemItemArgumentError). Elevated deletion of project-scoped __pycache__ directories succeeded. Exact ownership/ACL origin was not inspected. No upstream source was changed, and build/Python caches were removed after packaging.

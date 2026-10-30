@@ -45,6 +45,7 @@ if os.name == 'nt':
     subprocess.run([sys.executable, str(root / 'scripts/verify_vendor.py'),
                     '--vendor-root', str(executable.parent / '_internal/vendor')], cwd=root, check=True)
     shutil.copy2(root / 'start.bat', executable.parent / 'start.bat')
+    shutil.copy2(root / 'setup.bat', executable.parent / 'setup.bat')
     shutil.copy2(root / 'docs/user_manual.md', executable.parent / 'user_manual.md')
     archive = dist_dir / 'GroupMessageMonitor_windows.zip'
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:

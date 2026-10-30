@@ -12,6 +12,24 @@ from group_msg_monitor.relay_core import state_path
 
 
 class AppFlowTests(unittest.TestCase):
+    def test_automatic_monitoring_choice_survives_restart(self):
+        class Value:
+            def __init__(self, value):
+                self.value = value
+            def get(self):
+                return self.value
+            def set(self, value):
+                self.value = value
+        with tempfile.TemporaryDirectory() as temp:
+            app = SimpleNamespace(local_dir=Path(temp), auto=Value(True),
+                                  vars={k: Value('') for k in ('roster', 'target', 'start')})
+            App._save_preferences(app)
+            restarted = SimpleNamespace(local_dir=Path(temp), auto=Value(False),
+                                        vars={k: Value('') for k in ('roster', 'target', 'start')},
+                                        _show_state=lambda: None)
+            App._load_preferences(restarted)
+            self.assertTrue(restarted.auto.get())
+
     def test_result_buttons_use_fixed_folders_and_latest_generated_workbook(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); outputs = root/'output'; outputs.mkdir()

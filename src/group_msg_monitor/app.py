@@ -65,11 +65,13 @@ class App(tk.Tk):
         self.vars = {key: tk.StringVar() for key in ('roster', 'target', 'start', 'status', 'range', 'current', 'connection')}
         self.auto = tk.BooleanVar(value=False)
         self.vars['start'].set(now_bjt().strftime('%Y-%m-%d 00:00:00'))
-        self.vars['connection'].set('正在检查已保存的微信读取凭据…')
+        has_credentials = (self.local_dir / 'wechat.json').is_file()
+        self.vars['connection'].set('正在检查已保存的微信读取凭据…' if has_credentials else '尚未连接微信，请先完成微信连接设置。')
         self._build()
         self._load_preferences()
         self.after(100, self._poll)
-        self.after(250, self._check_connection)
+        if has_credentials:
+            self.after(250, self._check_connection)
         self.after(1000, self._schedule)
         self._clock()
         self.protocol('WM_DELETE_WINDOW', self._close)
@@ -146,7 +148,8 @@ class App(tk.Tk):
         self.run_btn.pack(side='left', padx=(0, 12))
         for label, command in [('打开最新结果', self._open_target), ('查看最新记录', self._open_result), ('打开结果文件夹', self._open_folder)]:
             ttk.Button(buttons, text=label, command=command).pack(side='left', padx=(0, 8))
-        ttk.Checkbutton(frame, text='保持运行时，每天 09:00、15:00 自动更新', variable=self.auto).pack(anchor='w', pady=(0, 10))
+        ttk.Checkbutton(frame, text='保持运行时，每天 09:00、15:00 自动更新', variable=self.auto,
+                        command=self._save_preferences).pack(anchor='w', pady=(0, 10))
         footer = ttk.Frame(frame)
         footer.pack(fill='x')
         ttk.Label(footer, textvariable=self.vars['connection'], style='Muted.TLabel', wraplength=700).pack(side='left')
@@ -160,6 +163,7 @@ class App(tk.Tk):
         if path.exists():
             try:
                 cfg = json.loads(path.read_text('utf-8'))
+                self.auto.set(bool(cfg.get('auto', False)))
                 migration = self.local_dir / 'legacy_paths.json'
                 aliases = json.loads(migration.read_text('utf-8')) if migration.exists() else {}
                 for key in ('roster', 'target', 'start'):
@@ -176,7 +180,9 @@ class App(tk.Tk):
         self._show_state()
 
     def _save_preferences(self):
-        atomic_json(self.local_dir / 'preferences.json', {k: self.vars[k].get() for k in ('roster', 'target', 'start')})
+        values = {k: self.vars[k].get() for k in ('roster', 'target', 'start')}
+        values['auto'] = self.auto.get()
+        atomic_json(self.local_dir / 'preferences.json', values)
 
     def _browse(self, key):
         path = filedialog.askopenfilename(parent=self, title='选择通讯录' if key == 'roster' else '选择要更新的 Excel', filetypes=[('Excel 文件', '*.xlsx')])
@@ -317,6 +323,10 @@ class App(tk.Tk):
     def _connection(self):
         if self.settings_window is not None and self.settings_window.winfo_exists():
             self.settings_window.lift()
+            return
+        if os.name == 'nt':
+            from .connection_wizard import WindowsConnection
+            self.settings_window = WindowsConnection(self)
             return
         window = self.settings_window = tk.Toplevel(self)
         window.title('微信连接设置')
@@ -464,6 +474,7 @@ class App(tk.Tk):
 def main():
     parser = argparse.ArgumentParser(description='群接龙更新工具')
     parser.add_argument('--check-runtime', action='store_true', help='检查打包后的微信初始化依赖，不读取真实微信')
+    parser.add_argument('--setup', action='store_true', help='打开首次使用向导，连接操作由 GUI 完成')
     parser.add_argument('--inspect-wechat', action='store_true')
     parser.add_argument('--initialize-wechat', action='store_true', help='显式执行一次 gh_ui 微信初始化')
     parser.add_argument('--db-dir', type=Path, help='初始化使用的当前账号 db_storage')
@@ -511,7 +522,10 @@ def main():
         result = update_file(args.target, args.roster, WeChatSource(home, log=print).fetch, first_start=args.start, log=print, save_as_new=True, output_dir=home.parent/'output', records_dir=home.parent/'records')
         print(json.dumps({k: result[k] for k in ('updated_at', 'cleared_count', 'output', 'archive')}, ensure_ascii=False, indent=2))
     else:
-        App().mainloop()
+        app = App()
+        if args.setup:
+            app.after(700, app._connection)
+        app.mainloop()
 
 
 if __name__ == '__main__':

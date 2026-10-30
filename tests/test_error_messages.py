@@ -10,6 +10,11 @@ from group_msg_monitor.error_messages import error_message, record_error
 
 
 class ErrorMessagesTests(unittest.TestCase):
+    def test_missing_script_transcript_reports_startup_before_fallback(self):
+        code, _, action = error_message(RuntimeError('WIN_ACTIVE_FAILED: No script transcript was produced\n[fallback] Weixin.exe 未运行'))
+        self.assertEqual(code, 'WIN_SCRIPT_START')
+        self.assertIn('setup.bat', action)
+
     def test_active_failure_takes_priority_over_fallback_not_running(self):
         code, _, action = error_message(RuntimeError('WIN_ACTIVE_FAILED: original failure\n[fallback] Weixin.exe 未运行'))
         self.assertEqual(code, 'ACTIVE_KEY_MISS')

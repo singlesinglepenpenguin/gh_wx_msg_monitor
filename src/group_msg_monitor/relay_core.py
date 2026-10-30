@@ -18,6 +18,7 @@ from xml.etree import ElementTree as ET
 import posixpath
 
 import openpyxl
+from .institution_match import resolve_institution
 
 BJT = timezone(timedelta(hours=8))
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -152,7 +153,6 @@ def read_target(path, sheet_name="Sheet1"):
 
 
 ENTRY = re.compile(r"(?m)^\s*\d+\s*[.、．)）]\s*(.+)$")
-TITLE = re.compile(r"【([^】\n]+)】|\[([^\]\n]+)\]")
 SKIPPED_PERSON_REASONS = {'通讯录未匹配姓名', '目标表没有此人列'}
 
 
@@ -168,24 +168,6 @@ def extract_people(entry, roster):
     return list(dict.fromkeys(m.group(1) for m in re.finditer(pattern, text)))
 
 
-def heading_institutions(head, target):
-    """没有机构括号时，仅匹配标题首行的完整机构名，不扫描正文。"""
-    for line in head.splitlines():
-        line = re.sub(r'^\[appmsg type=\d+\]\s*', '', line).strip()
-        if not line or line.startswith('#'):
-            continue
-        line = re.sub(r'^[^\u3400-\u9fffA-Za-z]+', '', line)
-        candidates = set()
-        for key, row in target['rows'].items():
-            name = re.sub(r'[（(][^()（）]*[)）]', '', norm(row['label'])).strip()
-            if line.startswith(name):
-                tail = line[len(name):]
-                if not tail or re.match(r'[\s\d（(：:，,。!！—\-]|[Qq][1-4]|服务|打分|季度|开始|截止', tail):
-                    candidates.add(key)
-        return candidates
-    return set()
-
-
 def plan_changes(messages, roster, target):
     changes, issues, pending, ignored = {}, [], [], []
     relay_count = 0
@@ -198,16 +180,15 @@ def plan_changes(messages, roster, target):
         issue_count = len(issues)
         # 每条消息独立定位机构，不从上一条消息继承。
         head = text[:ENTRY.search(text).start()] if ENTRY.search(text) else text
-        titles = [a or b for a, b in TITLE.findall(head)]
-        candidates = {institution_key(t) for t in titles if institution_key(t) in target["rows"]}
-        if not candidates:
-            candidates = heading_institutions(head, target)
+        resolution = resolve_institution(head, target['rows'], institution_key)
         evidence = {k: message.get(k, "") for k in ("time", "create_ts", "sender", "chat_name")}
-        if len(candidates) != 1:
-            issues.append({**evidence, "reason": "机构未匹配" if not candidates else "一条接龙匹配多个机构", "detail": "、".join(titles), "content": text})
+        evidence['institution_resolution'] = resolution
+        if resolution['status'] != 'matched':
+            detail = '、'.join(e['candidate'] for e in resolution['evidence']) or '、'.join(resolution['subject_scopes'])
+            issues.append({**evidence, "reason": "一条接龙匹配多个机构" if resolution['status'] == 'ambiguous' else "机构未匹配", "detail": detail, "content": text})
             pending.append(message)
             continue
-        inst = next(iter(candidates))
+        inst = resolution['key']
         context = {**evidence, 'institution': target['rows'][inst]['label']}
         entries = ENTRY.findall(text)
         if not entries:
@@ -367,6 +348,13 @@ def result_notes(result):
              '按机构、姓名和单元格合并，多条接龙证据不会重复计算删除格数。',
              '消息发送者是发布整条接龙的账号，不代表其中每个名单成员。',
              '缺少姓名、缺少人员列及纯提示语直接跳过，不列入待核对。', '', '本次实际删除：']
+    if any(i.get('reason') == '机构未匹配' for i in result['issues']):
+        from .error_messages import error_message
+        code, summary, action = error_message(ValueError('INSTITUTION_MATCH'))
+        explanation = [f'[{code}] {summary}', action]
+        if 'target_institutions' in result:
+            explanation.append('本轮实际读取的机构列：' + '、'.join(result['target_institutions']))
+        lines[-1:-1] = explanation + ['']
     def details(entries, action):
         for c in entries:
             lines.append(f"{action} | 机构：{c['institution']} | 姓名：{c['person']} | 单元格：{c['cell']}")
@@ -523,6 +511,7 @@ def update_file(source, roster_path, fetch, *, first_start=None, end=None, group
                       "relay_count": plan['relay_count'], "cleared_count": len(cleared), "already_empty_count": len(empty),
                       "changes": cleared, "already_empty_entries": [c for c in plan['changes'] if c['cell'] in empty_cells],
                       "issues": plan['issues'], "result_sha256": result_hash,
+                      "target_institutions": [row['label'] for row in target['rows'].values()],
                       "ignored_entries": plan['ignored']}
             # 在覆盖前完成归档和审计；状态失败时不推进，下次可以幂等重放。
             atomic_json(history / 'details.json', result)

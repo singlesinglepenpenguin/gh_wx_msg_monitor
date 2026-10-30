@@ -175,7 +175,7 @@ class WeChatSource:
 
     def config(self):
         path = self.local_dir / 'wechat.json'
-        if not path.exists():
+        if not path.exists() and os.name != 'nt':
             for root in existing_configs():
                 if (root / 'config.json').exists():
                     try:

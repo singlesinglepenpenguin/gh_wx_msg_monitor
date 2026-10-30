@@ -45,6 +45,18 @@ def redact(text):
 def error_message(exc):
     text = str(exc)
     lower = text.lower()
+    if 'INSTITUTION_MATCH' in text:
+        return ('INSTITUTION_MATCH', '接龙标题未能对应当前目标 Excel 的唯一机构行，相关消息未用于清空单元格。',
+                '先核对本轮基于文件和 Sheet1 机构列：缺少机构时请补充机构行，保存并关闭 Excel 后重新选择该表更新；已有机构时核对标题名称与表内名称。未匹配接龙会保留待下轮复核，无需重新初始化微信。')
+    if 'No script transcript was produced' in text:
+        return ('WIN_SCRIPT_START', 'Windows 一次性取钥脚本未成功启动，未生成读取凭据。',
+                '关闭本次窗口，从完整交付包双击 setup.bat 再用 start.bat；入口会补齐系统 PowerShell 路径。确认没有取消 UAC。若仍失败，请保留错误记录核对 PowerShell、脚本路径和原始启动错误，不要重复抓取或手工寻找密钥。')
+    if 'WIN_EXIT_REQUIRED' in text:
+        return ('WIN_EXIT_REQUIRED', '微信尚未接受正常退出请求，一次性连接还未开始。',
+                '从微信自己的托盘菜单正常退出（不是右上角 ×）；连接向导会自动检测并继续。不要结束任务或删除微信数据库。已有有效凭据时日常读取无需退出。')
+    if 'WIN_CLIENT_MISSING' in text:
+        return ('WIN_CLIENT_MISSING', '本机未找到已安装的 Windows 微信。',
+                '先安装官方 Windows 微信并完成本人登录，再回到连接向导点击“识别当前账号”。无需提供密钥。')
     if 'WINDOWS_DISPLAY_LAYOUT' in text:
         return ('WINDOWS_DISPLAY_LAYOUT', 'Windows 显示缩放导致窗口底部控件不可见。',
                 '关闭旧窗口，双击 start.bat 使用最新版；新版已修复重复 DPI 缩放并调整初始窗口高度。若屏幕可用空间仍不足，请最大化窗口并核对系统显示缩放。')

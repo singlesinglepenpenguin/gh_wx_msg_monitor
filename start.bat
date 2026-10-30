@@ -2,6 +2,7 @@
 chcp 65001 >nul
 setlocal EnableExtensions
 cd /d "%~dp0"
+set "PATH=%SystemRoot%\System32\WindowsPowerShell\v1.0;%PATH%"
 
 rem Packaged distribution: no Python installation is required.
 if exist "GroupMessageMonitor.exe" goto packaged

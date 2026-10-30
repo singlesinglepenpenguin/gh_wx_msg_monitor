@@ -107,6 +107,25 @@ class WorkflowTests(unittest.TestCase):
     def run_update(self, messages, **kwargs):
         return update_file(self.target, self.roster, lambda *args: messages, first_start='2026-10-26 00:00:00', end='2026-10-26 09:00:00', **kwargs)
 
+    def test_each_update_rereads_added_and_removed_institutions(self):
+        self.run_update([])
+        book = openpyxl.load_workbook(self.target)
+        sheet = book['Sheet1']
+        # Replace the prior institution after the first run; the next run
+        # must use the changed workbook rather than its old institution list.
+        sheet['A2'] = '新增测试基金'
+        column = next(c.column for c in sheet[1] if c.value == '赵阳')
+        sheet.cell(2, column, '待清空')
+        book.save(self.target)
+        book.close()
+        result = update_file(self.target, self.roster, lambda *args: [
+            message('#接龙\n【新增测试基金】\n1. 赵阳 已要', '2026-10-26 10:00:00'),
+            message('#接龙\n【汇添富权益】\n1. 赵阳 已要', '2026-10-26 10:01:00'),
+        ], end='2026-10-26 15:00:00')
+        self.assertEqual(result['cleared_count'], 1)
+        self.assertEqual(result['changes'][0]['institution'], '新增测试基金')
+        self.assertEqual(result['issues'][0]['reason'], '机构未匹配')
+
     def test_real_appmsg_prefix_and_confirmed_institution_alias(self):
         book = openpyxl.load_workbook(self.target)
         book['Sheet1']['A2'] = '中邮基金（10.29）'
@@ -216,6 +235,23 @@ class WorkflowTests(unittest.TestCase):
         result = self.run_update([message(text)])
         self.assertEqual(result['cleared_count'], 1)
         self.assertEqual(result['issues'], [])
+
+    def test_missing_institutions_report_heading_without_body_brackets(self):
+        result = self.run_update([
+            message('#接龙\n【建信基金】9-10月打分开始\n维持排名[抱拳]\n1. 龚泓月 已要'),
+            message('#Group Note\n#接龙\n国联安9-10月服务打分开启\n【本周五】前完成\n1. 龚泓月 已要'),
+        ])
+        self.assertEqual(result['cleared_count'], 0)
+        self.assertEqual([i['detail'] for i in result['issues']], ['建信基金', '国联安'])
+        self.assertEqual(len(load_state(self.target)['pending']), 2)
+        note = result_notes(result)
+        self.assertIn('[INSTITUTION_MATCH]', note)
+        self.assertIn('本轮实际读取的机构列：', note)
+
+    def test_body_cannot_redirect_an_unknown_title_to_an_existing_institution(self):
+        result = self.run_update([message('#接龙\n【未知基金】打分开始\n可参考【富国基金】服务记录\n1. 龚泓月 已要')])
+        self.assertEqual(result['cleared_count'], 0)
+        self.assertEqual(result['issues'][0]['detail'], '未知基金')
 
     def test_broker_mention_in_body_is_not_a_fund_institution(self):
         book = openpyxl.load_workbook(self.target)

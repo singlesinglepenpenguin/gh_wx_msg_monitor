@@ -4,11 +4,13 @@
 
 macOS 源码首次使用：安装带 Tkinter 的 Python 3.10 或更新版本，双击 **setup.command** 安装依赖（需要联网），成功后双击 **start.command**。以后只需 start.command。
 
-Windows 源码使用：安装带 Tkinter 的 Python 3.10 或更新版本后，**日常只需双击 start.bat**。首次若尚无 `.venv`，`start.bat` 会自动调用 `setup.bat` 联网安装依赖（`requirements.txt`：openpyxl / pycryptodome / zstandard；PyPI 失败会改用清华镜像）。也可单独双击 `setup.bat` 重装环境，对应 macOS 的 `setup.command`。初始化微信密钥若提示拒绝访问进程，请以管理员身份运行 `start.bat`。当前源码分发入口为 `.bat`（与 macOS `.command` 对等）；`scripts/package_app.py` 可在目标机打成 `GroupMessageMonitor.exe`，本轮以源码 bat 入口交付。
+Windows 客户交付：完整解压 `dist/GroupMessageMonitor_windows.zip`，首次双击 **setup.bat**，以后双击 **start.bat**。交付包内置 Python 和全部运行依赖，不要求客户安装 Python、使用 AI、输入命令或提供密钥。setup 会检查依赖并打开微信连接向导；通过“打开微信 / 识别当前账号 / 自动获取密钥并连接微信”完成首次设置。已有凭据时不重复取钥；自动更新勾选状态会保存。详见 [客户手册](docs/user_manual.md) 和 [无密钥冷启动验收](docs/windows_setup_flow.md)。
+
+Windows 源码开发：需要带 Tkinter 的 Python 3.10 或更新版本。首次 `setup.bat` 创建 `.venv`、安装 requirements.txt 并打开连接向导；日常 `start.bat`，缺少环境时会自动调用安装。客户应使用上方完整 Windows 交付包，无需安装 Python。
 
 请将完整项目放在自己可写的文件夹，不能只复制 src 或安装普通 wheel；上游代码及辅助脚本在 vendor。
 
-在新电脑选择自己的通讯录和更新基准，再按“微信连接设置”完成该电脑的一次性初始化。不会随源码提供原用户的表格、微信凭据或历史配置。已有有效凭据时微信保持登录即可。当前不重新打包。
+在新电脑选择自己的通讯录和更新基准，再按“微信连接设置”完成该电脑的一次性初始化。交付包不包含原用户的表格、微信凭据或历史配置。已有有效凭据时微信保持登录即可。Windows 交付包已打包并完成无密钥 GUI 实测。
 
 ## Directory layout
 
@@ -54,9 +56,9 @@ $env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m unittest discover -s tests
 .\.venv\Scripts\python.exe scripts\check_layout.py
 ```
 
-脚本：scripts/capture_ui.py 只截图本工具窗口；scripts/export_report.py 导出当前报告；scripts/verify_reference.py 使用参考表副本做验证；scripts/package_app.py 留待目标系统打包，本轮未运行。未来可分发的打包文件名为 GroupMessageMonitor。
+脚本：scripts/capture_ui.py 截图本工具窗口；scripts/export_report.py 导出当前报告；scripts/verify_reference.py 使用参考表副本做验证；scripts/package_app.py 在目标系统打包 Windows 交付 ZIP，并核验二进制依赖和上游指纹。
 
-微信连接、授权、初始化、解密、群定位和查询沿用 vendor/wechat_native，保留 vendor/UPSTREAM.json 中的已记录补丁。Windows 自动取钥按 gh_ui 的 active-first、raw-fallback 顺序执行，不使用自写附加脚本。首次选择账号目录后，从托盘退出微信，点“自动获取密钥并连接微信”并在新窗口完成登录；日常有凭据时无需再次取钥。data/local_data 含个人密钥和缓存，不随应用分发。
+微信连接、授权、初始化、解密、群定位和查询沿用 vendor/wechat_native，保留 vendor/UPSTREAM.json 中的已记录补丁。Windows 自动取钥按 gh_ui 的 active-first、raw-fallback 顺序执行，不使用自写附加脚本。首次在连接向导确认当前账号并点“自动获取密钥并连接微信”，工具请求正常退出后自动继续授权和登录；日常有凭据时无需再次取钥。data/local_data 含个人密钥和缓存，不随应用分发。
 
 新环境验收：`python3 scripts/verify_clean_environment.py` 从 Git 索引复制源码至临时目录，用独立虚拟环境安装依赖，检查首次启动并运行回归测试。报告保存在 data/diagnostics/clean_environment.json。此检查不连接真实微信，不代表另一台电脑已完成微信授权；Windows 尚需目标电脑实测。
 
