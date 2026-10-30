@@ -4,7 +4,7 @@
 
 macOS 源码首次使用：安装带 Tkinter 的 Python 3.10 或更新版本，双击 **setup.command** 安装依赖（需要联网），成功后双击 **start.command**。以后只需 start.command。
 
-Windows 客户交付：完整解压 `dist/GroupMessageMonitor_windows.zip`，首次双击 **setup.bat**，以后双击 **start.bat**。交付包内置 Python 和全部运行依赖，不要求客户安装 Python、使用 AI、输入命令或提供密钥。setup 会检查依赖并打开微信连接向导；通过“打开微信 / 识别当前账号 / 自动获取密钥并连接微信”完成首次设置。已有凭据时不重复取钥；自动更新勾选状态会保存。详见 [客户手册](docs/user_manual.md) 和 [无密钥冷启动验收](docs/windows_setup_flow.md)。
+Windows 客户交付：完整解压 `dist/GroupMessageMonitor_windows.zip`，首次双击 **setup.bat**，以后双击 **start.bat**。交付包内置 Python 和全部运行依赖，不要求客户安装 Python、使用 AI、输入命令或提供密钥。setup 会检查依赖并打开微信连接向导；自行打开微信登录，再通过“识别当前账号 / 自动获取密钥并连接微信”完成首次设置。已有凭据时不重复取钥；自动更新勾选状态会保存。详见 [客户手册](docs/user_manual.md) 和 [无密钥冷启动验收](docs/windows_setup_flow.md)。
 
 Windows 源码开发：需要带 Tkinter 的 Python 3.10 或更新版本。首次 `setup.bat` 创建 `.venv`、安装 requirements.txt 并打开连接向导；日常 `start.bat`，缺少环境时会自动调用安装。客户应使用上方完整 Windows 交付包，无需安装 Python。
 

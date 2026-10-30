@@ -221,43 +221,48 @@ class App(tk.Tk):
         self.vars['current'].set(('本次更新截止：' if self.run_until else '当前时间 / 本次截止：') + current.strftime('%Y-%m-%d %H:%M:%S') + '（北京时间）')
         self.after(1000, self._clock)
 
-    def _work(self, fn, kind='done', operation='读取接龙并更新 Excel'):
+    def _work(self, fn, kind='done', operation='读取接龙并更新 Excel', *, automatic=False):
         if self.busy:
             return
         self.busy = True
-        for widget in [self.run_btn, *self.file_buttons, *self.path_entries.values()]:
-            widget.configure(state='disabled')
         def run():
             try:
                 self.events.put((kind, fn()))
             except Exception as exc:
-                event = 'connection_error' if kind == 'checked' else 'error'
+                event = 'connection_error' if kind == 'checked' else ('automatic_error' if automatic else 'error')
                 self.events.put((event, record_error(self.local_dir, exc, operation)))
             finally:
                 self.events.put(('idle', None))
-        threading.Thread(target=run, daemon=True).start()
+        try:
+            for widget in [self.run_btn, *self.file_buttons, *self.path_entries.values()]:
+                widget.configure(state='disabled')
+            threading.Thread(target=run, daemon=True).start()
+        except Exception as exc:
+            self.events.put(('automatic_error' if automatic else 'error', record_error(self.local_dir, exc, operation)))
+            self.events.put(('idle', None))
 
     def _check_connection(self):
         self._work(lambda: WeChatSource(self.local_dir).inspect(), 'checked', '检查已保存的微信读取凭据')
 
-    def _update(self):
-        target, roster, start = (self.vars[k].get().strip() for k in ('target', 'roster', 'start'))
-        if not Path(target).is_file() or not Path(roster).is_file():
-            messagebox.showerror('先选择两个文件', '请选择通讯录和要更新的 Excel。', parent=self)
+    def _update(self, *, automatic=False):
+        if self.busy:
             return
+        target, roster, start = (self.vars[k].get().strip() for k in ('target', 'roster', 'start'))
         try:
+            if not Path(target).is_file() or not Path(roster).is_file():
+                raise ValueError('UPDATE_FILES_MISSING: 请选择通讯录和要更新的 Excel。')
             if not load_state(Path(target)):
                 parse_bjt(start)
-        except ValueError as exc:
-            messagebox.showerror('检查读取时间或进度', str(exc), parent=self)
+            self._save_preferences()
+        except Exception as exc:
+            self.events.put(('automatic_error' if automatic else 'error', record_error(self.local_dir, exc, '更新前检查文件、时间和配置')))
             return
-        self._save_preferences()
         self.run_until = now_bjt()
         self.vars['current'].set('本次更新截止：' + self.run_until.strftime('%Y-%m-%d %H:%M:%S') + '（北京时间）')
         self.vars['status'].set(f'正在基于 {Path(target).name} 生成新版本，请稍候…')
         source = WeChatSource(self.local_dir, log=self._log)
         cutoff = self.run_until
-        self._work(lambda: update_file(target, roster, source.fetch, first_start=start, end=cutoff, group=GROUP, log=self._log, save_as_new=True, output_dir=self.output_dir, records_dir=self.records_dir))
+        self._work(lambda: update_file(target, roster, source.fetch, first_start=start, end=cutoff, group=GROUP, log=self._log, save_as_new=True, output_dir=self.output_dir, records_dir=self.records_dir), automatic=automatic)
 
     def _poll(self):
         try:
@@ -296,10 +301,11 @@ class App(tk.Tk):
                     self.connection_ok = False
                     self.vars['connection'].set('微信暂不可读取，请点“微信连接设置”。')
                     self._log(f"{value['code']}：{value['summary']}\n{value['action']}\n{value['error']}")
-                elif kind == 'error':
-                    self.vars['status'].set('更新未完成：' + value['summary'])
+                elif kind in ('error', 'automatic_error'):
+                    self.vars['status'].set(f"更新未完成 [{value['code']}]：{value['summary']}\n{value['action']}")
                     self._log(json.dumps(value, ensure_ascii=False, indent=2))
-                    messagebox.showerror('操作未完成', value['summary'] + '\n\n' + value['action'] + '\n\n具体错误已保存在data/diagnostics 文件夹。\n错误编号：' + value['code'], parent=self)
+                    if kind == 'error':
+                        messagebox.showerror('操作未完成', value['summary'] + '\n\n' + value['action'] + '\n\n具体错误已保存在data/diagnostics 文件夹。\n错误编号：' + value['code'], parent=self)
                 elif kind == 'idle':
                     self.busy = False
                     self.run_until = None
@@ -309,16 +315,27 @@ class App(tk.Tk):
                         entry.configure(state='readonly')
         except queue.Empty:
             pass
-        self.after(100, self._poll)
+        except Exception as exc:
+            report = record_error(self.local_dir, exc, '处理后台任务结果')
+            self.vars['status'].set(f"[{report['code']}] {report['summary']} {report['action']}")
+            self._log(json.dumps(report, ensure_ascii=False))
+        finally:
+            self.after(100, self._poll)
 
     def _schedule(self):
-        current = now_bjt()
-        slot = current.strftime('%Y-%m-%d %H')
-        if self.auto.get() and current.hour in (9, 15) and current.minute < 5 and slot != self.schedule_attempt and not self.busy:
-            self.schedule_attempt = slot
-            self._log('北京时间定时更新开始。')
-            self._update()
-        self.after(10000, self._schedule)
+        try:
+            current = now_bjt()
+            slot = current.strftime('%Y-%m-%d %H')
+            connection = getattr(self, 'settings_window', None)
+            connecting = getattr(connection, 'waiting', False) or getattr(connection, 'connecting', False)
+            if self.auto.get() and current.hour in (9, 15) and current.minute < 5 and slot != self.schedule_attempt and not self.busy and not connecting:
+                self.schedule_attempt = slot
+                self._log('北京时间定时更新开始。')
+                self._update(automatic=True)
+        except Exception as exc:
+            self.events.put(('automatic_error', record_error(self.local_dir, exc, '北京时间定时更新')))
+        finally:
+            self.after(10000, self._schedule)
 
     def _connection(self):
         if self.settings_window is not None and self.settings_window.winfo_exists():

@@ -49,10 +49,9 @@ class WindowsConnection(tk.Toplevel):
         actions.pack(anchor='w')
         self.rescan = ttk.Button(actions, text='识别当前账号', command=self.identify)
         self.rescan.pack(side='left', padx=(0, 8))
-        self.open_button = ttk.Button(actions, text='打开微信', command=self.open_client)
-        self.open_button.pack(side='left', padx=(0, 8))
         self.manual = ttk.Button(actions, text='未找到账号？选择文件夹', command=self.choose)
         self.manual.pack(side='left')
+        ttk.Label(box, text='请自行打开微信并登录，再点击“识别当前账号”。', wraplength=760, style='Muted.TLabel').pack(anchor='w', pady=(8, 0))
         ttk.Label(box, textvariable=self.detail, wraplength=760, style='Muted.TLabel').pack(anchor='w', pady=(8, 14))
         ttk.Separator(box).pack(fill='x')
         ttk.Label(box, textvariable=self.status, wraplength=760).pack(anchor='w', pady=14)
@@ -119,14 +118,6 @@ class WindowsConnection(tk.Toplevel):
         if len(paths) == 1:
             self.selected.set(f'手动选择的本机账号 1')
 
-    def open_client(self):
-        try:
-            open_wechat()
-            self.status.set('请在微信中完成本人登录，再回到这里点“识别当前账号”。')
-        except Exception as exc:
-            failure = record_error(self.app.local_dir, exc, '打开本机微信')
-            messagebox.showerror('无法打开微信', f"[{failure['code']}] {failure['summary']}\n{failure['action']}", parent=self)
-
     def connect(self):
         if self.app.busy or self.connecting or self.waiting:
             return
@@ -166,7 +157,7 @@ class WindowsConnection(tk.Toplevel):
 
     def set_controls(self, enabled):
         state = 'normal' if enabled else 'disabled'
-        for button in (self.connect_button, self.rescan, self.manual, self.open_button):
+        for button in (self.connect_button, self.rescan, self.manual):
             button.configure(state=state)
         self.picker.configure(state='readonly' if enabled else 'disabled')
         for widget in (self.app.run_btn, *self.app.file_buttons):

@@ -45,6 +45,9 @@ def redact(text):
 def error_message(exc):
     text = str(exc)
     lower = text.lower()
+    if 'UPDATE_FILES_MISSING' in text:
+        return ('UPDATE_FILES_MISSING', '自动或手动更新所需的 Excel 文件尚未选择或已经移动。',
+                '重新选择有效的通讯录和更新基准文件，核对首次开始时间。定时任务本轮已跳过，修正后可手动更新或等待下次 09:00、15:00。')
     if 'INSTITUTION_MATCH' in text:
         return ('INSTITUTION_MATCH', '接龙标题未能对应当前目标 Excel 的唯一机构行，相关消息未用于清空单元格。',
                 '先核对本轮基于文件和 Sheet1 机构列：缺少机构时请补充机构行，保存并关闭 Excel 后重新选择该表更新；已有机构时核对标题名称与表内名称。未匹配接龙会保留待下轮复核，无需重新初始化微信。')
