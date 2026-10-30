@@ -420,3 +420,10 @@ TXT：每轮独立写 data/records/update_YYYYMMDD_HHMMSS.txt，时间/同秒版
 
 
 - Rebuild blocker: PyInstaller COLLECT failed with PermissionError [WinError 5] while deleting a prior package's data/records workbook. The complete raw failure is in .work/package_privacy.log. Confirmed: user testing had generated runtime data inside the distributable directory, and the normal-permission process could not delete a remaining workbook. Exact ACL ownership was not inspected. The elevated rebuild first preserves remaining packaged runtime data under data/backups/package_runtime_<timestamp>, then rebuilds the clean program directory; personal data is not added to the ZIP. Any partial removal by the failed PyInstaller cleanup predates that preservation step, so the backup is not claimed to be a complete copy of the original test session.
+
+## 2026-10-30 Local conversation terminal display issue
+
+- Original report: overlapping text and intermittent freezing in the Codex conversation terminal. Stage: development console rendering, not the WeChat application.
+- Confirmed: classic Windows console, actual font cells 8x16 before adjustment, frontend 0.165.0/backend 0.166.0; QuickEdit disabled in the active input mode, free memory available and processes responding. Doctor found no failed state/auth/connectivity checks. A unique cause of the intermittent problem was not established.
+- Handling: back up local configuration; change only TUI animation and alternate-screen preferences; resize/redraw the active console font cells to the verified actual 10x18; provide an optional resume shortcut using locally installed 0.166.0. No conversation was killed and no security policy weakened.
+- Verification: user reported improvement and no further overlap at that point. New-launch settings still require restarting the frontend; ongoing observation is needed. Full local notes, scope, hypotheses and rollback are in terminal_render_review.md (not distributed in the customer ZIP).

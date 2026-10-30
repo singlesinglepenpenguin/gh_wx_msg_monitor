@@ -12,3 +12,6 @@
 
 - 所有目录及非 Excel 文件名使用英文；Excel 文件名允许中文。业务源码放 src/group_msg_monitor，运行数据放 data。
 - 清理连接、缓存或恢复首次使用状态时，必须保留 `reference/` 和 `data/reference/` 中的用户测试 Excel，不得作为缓存删除。
+- 客户包只能使用 `docs/diagnostics/error_message.md` 通用说明，不得打包 `data/diagnostics/error_message.md` 开发诊断历史；交付前运行 `scripts/verify_distribution.py`，同时检查文档中的账号标识与本机路径。
+- 自动任务不得依赖模态报错窗口结束；验证调度器、后台线程、结果队列、Excel 版本和失败恢复的完整链路，明确区分模拟时间/构造消息与真实微信验证。
+- 继续开发前阅读 `docs/maintenance_review.md` 中的接续摘要；保留已认可版本的提交与推送记录，功能修复、无行为变化清理独立提交。
