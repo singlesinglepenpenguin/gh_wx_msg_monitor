@@ -13,7 +13,7 @@ from .paths import PROJECT_ROOT, resource_root, data_home
 BASE = resource_root()
 sys.path.insert(0, str(BASE / 'vendor'))
 from wechat_native import messages as native
-from wechat_native.key_scan import collect_db_files, keys_from_passphrase, verify_enc_key
+from wechat_native.key_scan import keys_from_passphrase, verify_enc_key
 
 from .relay_core import BJT, atomic_json
 from datetime import datetime

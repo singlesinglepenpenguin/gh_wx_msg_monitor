@@ -16,7 +16,7 @@ Windows 源码开发：需要带 Tkinter 的 Python 3.10 或更新版本。首�
 
 ```text
 src/group_msg_monitor/   业务源码与模块入口
-scripts/                构建、验证、截图和报告脚本
+scripts/                构建、验证和报告脚本
 tests/                 回归测试
 docs/                  运营说明和工程说明
 vendor/                gh_ui 原生依赖、上游与补丁指纹
@@ -56,7 +56,7 @@ $env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m unittest discover -s tests
 .\.venv\Scripts\python.exe scripts\check_layout.py
 ```
 
-脚本：scripts/capture_ui.py 截图本工具窗口；scripts/export_report.py 导出当前报告；scripts/verify_reference.py 使用参考表副本做验证；scripts/package_app.py 在目标系统打包 Windows 交付 ZIP，并核验二进制依赖和上游指纹。
+脚本：scripts/export_report.py 导出当前报告；scripts/package_app.py 打包并核验依赖与上游指纹；scripts/check_fresh_ui.py 在无配置环境检查首次界面；scripts/verify_windows_smoke.py 检查 Windows 依赖、界面和构造 Excel 流程。表格、定时更新和机构匹配使用 tests 中的回归测试。已移除绑定历史验收数据的一次性脚本，详见 [清理记录](docs/maintenance_review.md)。
 
 微信连接、授权、初始化、解密、群定位和查询沿用 vendor/wechat_native，保留 vendor/UPSTREAM.json 中的已记录补丁。Windows 自动取钥按 gh_ui 的 active-first、raw-fallback 顺序执行，不使用自写附加脚本。首次在连接向导确认当前账号并点“自动获取密钥并连接微信”，工具请求正常退出后自动继续授权和登录；日常有凭据时无需再次取钥。data/local_data 含个人密钥和缓存，不随应用分发。
 

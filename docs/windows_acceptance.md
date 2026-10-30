@@ -24,17 +24,10 @@ Reports: `data/diagnostics/windows_live_validation.json`, `windows_live_gui.json
 
 Initialization exits the test Weixin client as the upstream script specifies. Reopen Weixin normally and keep it logged in for daily operation; use `start.bat`. Existing valid credentials do not require another debugger or extraction.
 
-## Reproduction
+## Current reproduction
 
-```powershell
-# Daily acceptance with existing credentials; no debugger.
-.\.venv\Scripts\python.exe scripts/validate_windows_live.py
+The table above records historical acceptance. Its personal runtime artifacts were subsequently removed at the user's request. The one-off scripts with fixed reference paths, dates and acceptance-session assumptions have been retired; they are not current reproduction commands.
 
-# Actual GUI button flow, using saved credentials and isolated Excel copies.
-.\.venv\Scripts\python.exe scripts/validate_windows_gui.py
-
-# Only if credentials are missing: exit Weixin from the tray first.
-.\.venv\Scripts\python.exe scripts/validate_windows_live.py --initialize --db-dir D:/xwechat_files/wxid_963al809bcox22_81ec/db_storage
-```
+Use the GUI procedure in [the user manual](user_manual.md) with a copy of the desired workbook and the correct time interval. Existing credentials use normal daily reading; missing credentials use the GUI one-time setup. For repeatable offline coverage, run the regression suite, including test_schedule.py (simulated Beijing slots with real workers, queue, Excel writes and progress) and test_wechat_source.py (constructed encrypted databases/WAL, not a live account).
 
 Source: user-provided `gh_ui_fresh/api/wechat_native`, commit `6d30d29603328412829013c59cd19f84343c8518`. Original and patch SHA256 values remain in `vendor/UPSTREAM.json`; `scripts/verify_vendor.py` rejects unrecorded changes and extra files. This acceptance does not establish support for Weixin 4.1.15.56 or other computers/accounts.

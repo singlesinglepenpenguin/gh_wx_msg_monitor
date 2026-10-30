@@ -1,6 +1,6 @@
 """Test the staged source checkout without local data or installed dependencies.
 
-Uses a temporary HOME and venv on this Mac, not a separate operating system.
+Uses a temporary HOME and venv on the current OS, not another computer.
 Never initializes or queries real WeChat. Requires git and network for pip.
 """
 import json
@@ -76,7 +76,7 @@ def main():
                 if result.returncode:
                     raise RuntimeError(label + ' failed; see clean_' + label + '.log')
             if os.name == 'nt':
-                run('setup', ['cmd.exe', '/c', 'setup.bat'], timeout=300)
+                run('setup', ['cmd.exe', '/c', 'setup.bat', '--quiet'], timeout=300)
                 python = str(source / '.venv' / 'Scripts' / 'python.exe')
             else:
                 run('setup', ['/bin/zsh', './setup.command'])

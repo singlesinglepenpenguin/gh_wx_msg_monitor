@@ -22,7 +22,7 @@
 - 原始参考表与更新前备份哈希一致。交付 ZIP 不含运行 data、密钥、聊天缓存或任何 Excel；客户自己在 GUI 选择业务表。
 - 72 项回归测试无失败，2 项平台测试跳过；vendor 指纹核验无未记录差异。
 
-证据：`data/diagnostics/cold_setup_validation.json`、`cold_setup_success.png`、`cold_start_monitoring_success.png`。首次失败的完整日志留在独立的首轮目录，未覆盖为成功。`scripts/record_cold_setup.py` 只核验并记录已完成的 GUI 流程，不执行密钥初始化。
+历史验收曾保存 cold_setup_validation.json 及冷启动截图，首次失败没有覆盖为成功。这些个人运行产物已按用户要求清理；依赖固定会话和固定密钥数量的一次性验收脚本也已移除。以上为当时结果记录，不能作为当前机器或当前版本重新实测的证明。当前首次使用按上方客户流程验证。
 
 ## 已验证边界
 

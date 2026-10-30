@@ -347,7 +347,7 @@ class App(tk.Tk):
             return
         window = self.settings_window = tk.Toplevel(self)
         window.title('微信连接设置')
-        window.geometry('900x560' if os.name == 'nt' else '900x420')
+        window.geometry('900x420')
         box = ttk.Frame(window, padding=18)
         box.pack(fill='both', expand=True)
         ttk.Label(box, textvariable=self.vars['connection'], font=self.ui_bold, wraplength=700).pack(anchor='w')
@@ -431,7 +431,7 @@ class App(tk.Tk):
             if self.connection_ok and directory == current:
                 messagebox.showinfo('无需初始化', '当前微信已可读取，直接回主界面点“开始更新”即可。', parent=window)
                 return
-            if capture or os.name == 'nt':
+            if capture:
                 if sys.platform == 'darwin':
                     prompt = '沿用 gh_ui 的一次性调试器抓取，可能触发微信安全验证。仅在普通初始化无结果时使用。启动后请打开会话、滚动消息触发读取。是否继续？'
                 else:
@@ -440,9 +440,8 @@ class App(tk.Tk):
                               '此步骤可能触发微信安全验证；成功后日常读取无需再次执行。是否继续？')
                 if not messagebox.askyesno('连接微信', prompt, parent=window):
                     return
-            use_capture = True if os.name == 'nt' else capture
-            self._work(lambda: initialize(directory, self.local_dir, self._log, capture=use_capture),
-                       'initialized', '连接微信初始化' if os.name == 'nt' else ('新版微信一次性初始化' if capture else '普通初始化'))
+            self._work(lambda: initialize(directory, self.local_dir, self._log, capture=capture),
+                       'initialized', '新版微信一次性初始化' if capture else '普通初始化')
         if sys.platform == 'darwin':
             ttk.Label(advanced, text='首次没有凭据：先尝试普通初始化。').pack(anchor='w', pady=(12, 4))
             ttk.Button(advanced, text='普通初始化', command=init).pack(anchor='w')

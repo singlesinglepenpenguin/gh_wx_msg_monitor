@@ -243,15 +243,6 @@ class WeChatSourceTests(unittest.TestCase):
         self.assertEqual(result['issues'], [])
 
     @unittest.skipUnless(sys.platform == 'darwin', 'Mac helper only')
-    def test_upstream_sources_have_only_recorded_changes(self):
-        root = Path(__file__).resolve().parents[1] / 'vendor'
-        manifest = json.loads((root / 'UPSTREAM.json').read_text('utf-8'))
-        changes = {item['file']: item['sha256'] for item in manifest['changes']}
-        self.assertEqual(set(changes), {'scanner_mac.py', '_mac_lldb_capture.py', 'messages.py', 'active_key.py', 'scripts/windows_wechat_get_key.ps1'})
-        for name, digest in manifest['files_sha256'].items():
-            self.assertEqual(hashlib.sha256((root/'wechat_native'/name).read_bytes()).hexdigest(), changes.get(name, digest), name)
-
-    @unittest.skipUnless(sys.platform == 'darwin', 'Mac helper only')
     def test_helper_arguments_preserve_spaces_quotes_and_shell_characters(self):
         from wechat_native import scanner_mac
         helper = Path("/tmp/tool space's/$literal/_mac_helper.py")

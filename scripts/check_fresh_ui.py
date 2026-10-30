@@ -35,11 +35,23 @@ def main():
             assert wizard.entries == {}
             assert wizard.selected.get() == ''
             assert not wizard.connecting and not wizard.waiting
+            def descendants(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from descendants(child)
+            buttons = {child.cget('text'): child for child in descendants(wizard)
+                       if child.winfo_class() == 'TButton'}
+            assert '打开微信' not in buttons
+            for text in ('识别当前账号', '自动获取密钥并连接微信', '完成，返回主界面'):
+                button = buttons[text]
+                assert button.winfo_ismapped()
+                assert button.winfo_rooty() + button.winfo_height() <= wizard.winfo_rooty() + wizard.winfo_height()
             assert not (local / 'wechat.json').exists()
             assert not (local / 'decrypted').exists()
             assert not local.exists() or not any(local.iterdir())
             print(json.dumps({'status': 'passed', 'check': 'real fresh source GUI only',
                               'account_picker': 'empty', 'files': 'empty', 'auto': False,
+                              'manual_wechat_start': True, 'connection_buttons_visible': True,
                               'credentials_and_decrypted_cache': 'absent',
                               'wechat_initialization_or_read': 'not performed'}))
         except Exception as exc:
