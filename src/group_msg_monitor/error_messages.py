@@ -45,6 +45,18 @@ def redact(text):
 def error_message(exc):
     text = str(exc)
     lower = text.lower()
+    if 'WINDOWS_DISPLAY_LAYOUT' in text:
+        return ('WINDOWS_DISPLAY_LAYOUT', 'Windows 显示缩放导致窗口底部控件不可见。',
+                '关闭旧窗口，双击 start.bat 使用最新版；新版已修复重复 DPI 缩放并调整初始窗口高度。若屏幕可用空间仍不足，请最大化窗口并核对系统显示缩放。')
+    if 'WIN_ACCOUNT_MISMATCH' in text:
+        return ('WIN_ACCOUNT_MISMATCH', '初始化校验库与实际登录的微信账号不一致。',
+                '先核对当前账号的 db_storage 目录；不同账号的密钥不能互相校验。结束本次测试会话后，按 gh_ui 原流程选择同一账号重新做一次初始化；不要删除聊天数据库。已有有效凭据时日常读取无需初始化。')
+    if 'WIN_INIT_LOGIN_STALLED' in text:
+        return ('WIN_INIT_LOGIN_STALLED', 'gh_ui 原版初始化启动的微信停在“正在进入”，未取得密钥。',
+                '先核对所选数据目录与登录账号一致，再检查阶段日志中的候选校验耗时；断点命中后微信会暂时暂停。结束本次初始化调试会话后正常打开微信，保留日志核对上游适配；不要反复初始化或删除微信数据库。已有有效凭据时日常读取无需调试器。')
+    if 'WIN_ACTIVE_FAILED' in text:
+        return ('ACTIVE_KEY_MISS', 'gh_ui 原版取钥失败，回退读取也未能完成。',
+                '先核对所选 db_storage 是否属于实际登录的微信账号；目录名不一定等于微信号，其他账号的密钥不能通过该库校验。再查看记录中的原始脚本错误；一次性初始化需从托盘退出微信、允许 UAC，在新窗口登录同一账号。不要直接认定微信版本不支持或反复抓取。')
     if '-2740' in text or '/bin/ps' in text and 'operation not permitted' in lower:
         return ('EXECUTION_CONTEXT', '当前启动环境无法执行系统授权或进程检查。',
                 '从 Finder 双击最新版应用再试。保留原始错误；Codex 的 Full access 与 macOS 系统授权是两回事。')
@@ -54,31 +66,40 @@ def error_message(exc):
     if 'task_for_pid' in text or 'RESIGN_NEEDED' in text or 'kr=5' in text:
         return ('WECHAT_PROCESS_ACCESS', '尚未取得微信进程的读取权限。',
                 '先正常退出微信，再在“连接微信”中执行“修复 Mac 读取权限”，重新打开并登录后初始化。此修复只在需要时执行。')
-    if 'WECHAT_RUNNING' in text:
+    if 'WECHAT_RUNNING' in text and sys.platform == 'darwin':
         return ('WECHAT_RUNNING', '修复读取权限时微信仍在运行。',
                 '通过微信菜单正常退出整个应用，再重试修复；日常读取可以一直保持微信登录。')
+    if 'WECHAT_RUNNING' in text or '检测到微信正在运行' in text or ('Weixin.exe' in text and '退出' in text):
+        return ('WECHAT_RUNNING', '微信还在运行，新版初始化没法继续。',
+                '先把微信彻底退出：右下角托盘微信图标 → 右键 → 退出。不要只点窗口上的 X。确认退出后，在“微信连接设置”点“自动获取密钥并连接微信”。已有凭据的日常读取无需退出。')
     if 'operation not permitted' in lower or '读取权限' in text and '授权' in text:
         return ('SYSTEM_FILE_ACCESS', '系统拒绝访问所需文件。',
                 '检查“隐私与安全性 → 完全磁盘访问权限”。要按日志确认实际被拒绝的程序；本次曾归属到 authtrampoline，而不是已授权的另一个 Python。具体路径和步骤见排错指南。')
     if '_mac_helper.py' in text and ('no such file' in lower or '缺失' in text):
         return ('HELPER_PATH', '微信初始化辅助脚本未能启动。',
                 '先核对辅助脚本是否存在；文件存在却报找不到时，检查错误路径是否带字面双引号。本次已修复参数重复引用，请使用最新版应用，不要盲目补文件。')
-    if 'NO_WECHAT' in text or '微信未运行' in text:
+    if 'NO_WECHAT' in text or '微信未运行' in text or 'Weixin.exe 未运行' in text:
         return ('WECHAT_NOT_RUNNING', '没有检测到运行中的微信。',
                 '打开并登录目标账号，确认能看到目标群，再点“测试群连接”。已有凭据时无需再次抓取。')
-    if os.name == 'nt' and ('access is denied' in lower or '拒绝访问' in text or '5' == text.strip() or 'winerror 5' in lower):
+    if os.name == 'nt' and ('access is denied' in lower or '拒绝访问' in text or 'winerror 5' in lower):
         return ('WINDOWS_ADMIN', 'Windows 拒绝读取微信进程内存。',
-                '以管理员身份运行 start.bat（或管理员 PowerShell 启动本工具），保持微信已登录后，在“微信连接设置 → 高级维护”执行普通初始化。不要用 Mac 的签名修复步骤。')
-    if os.name == 'nt' and ('access is denied' in lower or '拒绝访问' in text or '5' == text.strip() or 'winerror 5' in lower):
-        return ('WINDOWS_ADMIN', 'Windows 拒绝读取微信进程内存。',
-                '以管理员身份运行 start.bat（或管理员 PowerShell 启动本工具），保持微信已登录后，在“微信连接设置 → 高级维护”执行普通初始化。不要用 Mac 的签名修复步骤。')
+                '右键 start.bat → 以管理员身份运行，再打开“微信连接设置”重试。')
     if 'NO_LLDB' in text:
         return ('DEBUGGER_MISSING', '新版初始化所需的系统调试工具未安装。',
                 '按原版错误提示安装 Xcode Command Line Tools；已有有效凭据的日常更新不使用调试器。')
     if 'NO_SYMBOL' in text:
         return ('CAPTURE_SYMBOLS', '新版初始化没有定位到原版所需的加密函数。',
                 '记录微信版本及完整错误，核对 gh_ui 对此版本的支持。不要把它解释成群没有数据，也不要自行改成其他采集方式。')
+    if 'windows_wechat_get_key.ps1' in text or '缺少 Windows 抓密钥脚本' in text:
+        return ('WIN_SCRIPT_MISSING', 'Windows 抓密钥脚本缺失，初始化做不了。',
+                '这不是你路径选错。请向我们索取带完整 vendor 的安装包后再试。')
+    if 'WIN_ACTIVE_FAILED' in text or 'extract_wechat_key_active' in text or '未抓到 master key' in text:
+        return ('ACTIVE_KEY_MISS', '还没抓到读取密钥。',
+                '按 gh_ui 原流程从托盘退出微信，允许 UAC，然后在新窗口登录所选账号。若卡在“正在进入”，保留微信版本及阶段日志；当前尚未证实该版本可用，不要反复初始化或改用附加脚本。')
     if 'CAPTURE_FAILED' in text or '现有扫描未取得密钥' in text:
+        if os.name == 'nt':
+            return ('KEY_CAPTURE', '本次初始化没有取得有效密钥。',
+                    '核对选择的数据目录与实际登录账号一致，再查看原始错误。已有凭据时直接测试群连接；仅在首次使用或确实缺少凭据时做一次性初始化，点击“自动获取密钥并连接微信”，不要为日常更新反复抓取。')
         return ('KEY_CAPTURE', '本次初始化没有取得有效密钥。',
                 '先重新检查微信状态；若显示已就绪，直接开始更新，不需要初始化。只有首次使用或确实缺少凭据时，才从高级维护进行一次性初始化（先普通、再新版）。不要为日常更新反复抓取。')
     if '尚未连接微信' in text or '凭据未覆盖' in text or '无法解密' in text or '未保存可用密钥' in text:

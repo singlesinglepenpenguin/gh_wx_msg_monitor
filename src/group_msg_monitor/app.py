@@ -40,9 +40,15 @@ def open_path(path):
 
 class App(tk.Tk):
     def __init__(self):
+        if os.name == 'nt':
+            # Tk already scales point fonts for the display DPI. Avoid Windows
+            # bitmap scaling the whole window a second time and clipping its footer.
+            import ctypes
+            ctypes.windll.user32.SetProcessDPIAware()
         super().__init__()
         self.title('群接龙更新工具')
-        self.geometry('1000x680')
+        height = min(760, self.winfo_screenheight() - 100) if os.name == 'nt' else 680
+        self.geometry(f'1000x{max(640, height)}')
         self.minsize(920, 640)
         self._setup_style()
         self.local_dir = data_home()
@@ -70,16 +76,17 @@ class App(tk.Tk):
 
     def _setup_style(self):
         family = tkfont.nametofont('TkDefaultFont').actual('family')
-        self.ui_font, self.ui_bold = (family, 13), (family, 13, 'bold')
+        font_size = 11 if os.name == 'nt' else 13
+        self.ui_font, self.ui_bold = (family, font_size), (family, font_size, 'bold')
         for name in ('TkDefaultFont', 'TkTextFont', 'TkMenuFont', 'TkHeadingFont'):
-            tkfont.nametofont(name).configure(family=family, size=13)
+            tkfont.nametofont(name).configure(family=family, size=font_size)
         style = ttk.Style(self)
         style.theme_use('clam')
         self.configure(background='#F3F5F8')
         style.configure('.', font=self.ui_font, background='#F3F5F8', foreground='#253247')
         style.configure('TFrame', background='#F3F5F8')
         style.configure('TLabel', font=self.ui_font, background='#F3F5F8')
-        style.configure('Title.TLabel', font=(family, 20, 'bold'), foreground='#17243A')
+        style.configure('Title.TLabel', font=(family, 18 if os.name == 'nt' else 20, 'bold'), foreground='#17243A')
         style.configure('Muted.TLabel', foreground='#66748A')
         style.configure('Card.TFrame', background='#FFFFFF', borderwidth=1, relief='solid', bordercolor='#E1E6EE')
         style.configure('Card.TLabel', background='#FFFFFF')
@@ -313,11 +320,11 @@ class App(tk.Tk):
             return
         window = self.settings_window = tk.Toplevel(self)
         window.title('微信连接设置')
-        window.geometry('900x420')
+        window.geometry('900x560' if os.name == 'nt' else '900x420')
         box = ttk.Frame(window, padding=18)
         box.pack(fill='both', expand=True)
         ttk.Label(box, textvariable=self.vars['connection'], font=self.ui_bold, wraplength=700).pack(anchor='w')
-        ttk.Label(box, text='日常只需返回主界面，点击“开始更新”。只有首次使用、更换账号或读取凭据不可用时，才需要高级维护。', wraplength=700).pack(anchor='w', pady=12)
+        ttk.Label(box, text='已有有效凭据时，返回主界面点击“开始更新”即可。首次使用或更换账号时，选择与实际登录账号一致的数据目录，再完成一次初始化。', wraplength=700).pack(anchor='w', pady=12)
         accounts = discover_accounts()
         try:
             selected = WeChatSource(self.local_dir).config().get('db_dir', '')
@@ -329,7 +336,19 @@ class App(tk.Tk):
         picker = ttk.Combobox(box, textvariable=account, values=accounts)
         picker.pack(fill='x', pady=(0, 6))
         def hint():
-            account_hint.set(f'自动发现 {len(accounts)} 个账号目录。' + ('有多个候选，请核对当前登录账号；目录名不一定等于微信号。' if len(accounts) > 1 else '未识别到时，请手动选择微信文件存储位置或账号文件夹。'))
+            text = f'自动发现 {len(accounts)} 个账号目录。' + ('有多个候选，请核对当前登录账号；目录名不一定等于微信号。' if len(accounts) > 1 else '未识别到时，请手动选择微信文件存储位置或账号文件夹。')
+            if account.get().strip():
+                directory = Path(account.get().strip())
+                try:
+                    files = list((directory / 'message').glob('message_*.db'))
+                    if files:
+                        from datetime import datetime
+                        modified = datetime.fromtimestamp(max(p.stat().st_mtime for p in files)).strftime('%Y-%m-%d %H:%M')
+                        text += f'\n当前选择：{directory.parent.name}；消息库最近修改：{modified}（仅供核对，不代表当前登录账号）。'
+                except OSError:
+                    pass
+            account_hint.set(text)
+        account.trace_add('write', lambda *_: hint())
         def rescan():
             nonlocal accounts
             accounts = discover_accounts()
@@ -369,7 +388,8 @@ class App(tk.Tk):
             else:
                 advanced.pack(fill='x', pady=12)
                 window.geometry('900x690')
-        ttk.Button(box, text='高级维护（首次设置或更换账号时展开）', command=toggle).pack(anchor='w', pady=16)
+        if sys.platform == 'darwin':
+            ttk.Button(box, text='高级维护（首次设置或更换账号时展开）', command=toggle).pack(anchor='w', pady=16)
         def init(capture=False):
             paths = account_paths(account.get().strip()) if account.get().strip() else []
             if len(paths) != 1:
@@ -384,27 +404,32 @@ class App(tk.Tk):
             if self.connection_ok and directory == current:
                 messagebox.showinfo('无需初始化', '当前微信已可读取，直接回主界面点“开始更新”即可。', parent=window)
                 return
-            if capture:
+            if capture or os.name == 'nt':
                 if sys.platform == 'darwin':
                     prompt = '沿用 gh_ui 的一次性调试器抓取，可能触发微信安全验证。仅在普通初始化无结果时使用。启动后请打开会话、滚动消息触发读取。是否继续？'
                 else:
-                    prompt = ('沿用 gh_ui 的 Windows 调试器抓取。请先完全退出微信（任务栏图标 → 退出），'
-                              '确认无 Weixin.exe 后继续；将弹出新的微信窗口供登录，建议使用小号。是否继续？')
-                if not messagebox.askyesno('一次性获取新版微信密钥', prompt, parent=window):
+                    prompt = ('沿用 gh_ui 的一次性初始化：请先从托盘完全退出微信。'
+                              '允许管理员授权后，在弹出的微信窗口登录所选目录对应账号。'
+                              '此步骤可能触发微信安全验证；成功后日常读取无需再次执行。是否继续？')
+                if not messagebox.askyesno('连接微信', prompt, parent=window):
                     return
-            self._work(lambda: initialize(directory, self.local_dir, self._log, capture=capture), 'initialized', '新版微信一次性初始化' if capture else '普通初始化')
-        ttk.Label(advanced, text='首次没有凭据：先尝试普通初始化。').pack(anchor='w', pady=(12, 4))
-        ttk.Button(advanced, text='普通初始化', command=init).pack(anchor='w')
-        if sys.platform == 'darwin' or os.name == 'nt':
-            ttk.Label(advanced, text='普通扫描无结果：才使用一次性新版初始化。' + (' Windows 微信 4.1+ 通常需要这一步。' if os.name == 'nt' else ''), wraplength=850).pack(anchor='w', pady=(12, 4))
-            ttk.Button(advanced, text='新版微信初始化', command=lambda: init(True)).pack(anchor='w')
+            use_capture = True if os.name == 'nt' else capture
+            self._work(lambda: initialize(directory, self.local_dir, self._log, capture=use_capture),
+                       'initialized', '连接微信初始化' if os.name == 'nt' else ('新版微信一次性初始化' if capture else '普通初始化'))
         if sys.platform == 'darwin':
+            ttk.Label(advanced, text='首次没有凭据：先尝试普通初始化。').pack(anchor='w', pady=(12, 4))
+            ttk.Button(advanced, text='普通初始化', command=init).pack(anchor='w')
+            ttk.Label(advanced, text='普通扫描无结果：才使用一次性新版初始化。', wraplength=850).pack(anchor='w', pady=(12, 4))
+            ttk.Button(advanced, text='新版微信初始化', command=lambda: init(True)).pack(anchor='w')
             def repair():
                 if self.connection_ok:
                     messagebox.showinfo('无需修复', '当前微信已可读取，无需修改读取权限。', parent=window)
                 elif messagebox.askyesno('修改微信签名以修复进程读取权限', '仅用于进程权限错误，不能解决文件夹访问被拒绝。请先正常退出微信；将沿用 gh_ui 替换微信应用签名并添加调试读取权限，需管理员授权，可能影响微信自动更新。是否继续？', parent=window):
                     self._work(repair_mac_permission, 'repaired', '修复 Mac 读取权限')
             ttk.Button(advanced, text='修复进程读取权限（会修改微信签名）', command=repair).pack(anchor='w', pady=12)
+        else:
+            ttk.Label(box, text='首次连接：从托盘完全退出微信，再点下方按钮。工具自动获取并保存密钥；请在弹出的微信窗口完成一次登录。', wraplength=850).pack(anchor='w', pady=(8, 4))
+            ttk.Button(box, text='自动获取密钥并连接微信', command=lambda: init(True), style='Primary.TButton').pack(anchor='w')
 
     def _open_target(self):
         versions = []
@@ -440,6 +465,8 @@ def main():
     parser = argparse.ArgumentParser(description='群接龙更新工具')
     parser.add_argument('--check-runtime', action='store_true', help='检查打包后的微信初始化依赖，不读取真实微信')
     parser.add_argument('--inspect-wechat', action='store_true')
+    parser.add_argument('--initialize-wechat', action='store_true', help='显式执行一次 gh_ui 微信初始化')
+    parser.add_argument('--db-dir', type=Path, help='初始化使用的当前账号 db_storage')
     parser.add_argument('--update', action='store_true')
     parser.add_argument('--roster')
     parser.add_argument('--target')
@@ -453,11 +480,30 @@ def main():
         for name in modules:
             importlib.import_module(name)
         from wechat_native import scanner_mac
+        from wechat_native.active_key import wechat_key_script
         assert scanner_mac._helper_path().is_file()
         assert scanner_mac._lldb_capture_path().is_file()
+        assert wechat_key_script() and wechat_key_script().is_file()
         assert guide_path().is_file()
         print(json.dumps({'status': 'ok', 'modules': modules, 'check': 'dependencies only; no live access',
-                          'helper_scripts': 'present', 'troubleshooting_guide': 'present'}, ensure_ascii=False, indent=2))
+                          'helper_scripts': 'present', 'windows_key_script': 'present',
+                          'troubleshooting_guide': 'present'}, ensure_ascii=False, indent=2))
+    elif args.initialize_wechat:
+        home = args.local_data or data_home()
+        def log(message):
+            from .error_messages import redact
+            line = redact(message)
+            record_runtime_log(home, line + '\n')
+            print(line, flush=True)
+        try:
+            if not args.db_dir:
+                raise ValueError('请先选择微信账号的数据目录。')
+            count = initialize(args.db_dir, home, log, capture=True)
+            print(json.dumps({'initialized': True, 'key_count': count}, ensure_ascii=False), flush=True)
+        except Exception as exc:
+            report = record_error(home, exc, 'Windows 一次性密钥初始化')
+            print(f"[{report['code']}] {report['summary']}\n{report['action']}\n{report['error']}", file=sys.stderr, flush=True)
+            raise SystemExit(1)
     elif args.inspect_wechat:
         print(json.dumps(WeChatSource(args.local_data).inspect(), ensure_ascii=False, indent=2))
     elif args.update:

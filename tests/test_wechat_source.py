@@ -247,7 +247,7 @@ class WeChatSourceTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1] / 'vendor'
         manifest = json.loads((root / 'UPSTREAM.json').read_text('utf-8'))
         changes = {item['file']: item['sha256'] for item in manifest['changes']}
-        self.assertEqual(set(changes), {'scanner_mac.py', '_mac_lldb_capture.py', 'messages.py'})
+        self.assertEqual(set(changes), {'scanner_mac.py', '_mac_lldb_capture.py', 'messages.py', 'active_key.py', 'scripts/windows_wechat_get_key.ps1'})
         for name, digest in manifest['files_sha256'].items():
             self.assertEqual(hashlib.sha256((root/'wechat_native'/name).read_bytes()).hexdigest(), changes.get(name, digest), name)
 

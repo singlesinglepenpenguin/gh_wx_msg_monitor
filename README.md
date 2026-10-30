@@ -56,7 +56,7 @@ $env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m unittest discover -s tests
 
 脚本：scripts/capture_ui.py 只截图本工具窗口；scripts/export_report.py 导出当前报告；scripts/verify_reference.py 使用参考表副本做验证；scripts/package_app.py 留待目标系统打包，本轮未运行。未来可分发的打包文件名为 GroupMessageMonitor。
 
-微信连接、授权、初始化、解密、群定位和查询沿用 vendor/wechat_native，保留 vendor/UPSTREAM.json 中的已记录补丁。data/local_data 含个人密钥和缓存，不随应用分发。
+微信连接、授权、初始化、解密、群定位和查询沿用 vendor/wechat_native，保留 vendor/UPSTREAM.json 中的已记录补丁。Windows 自动取钥按 gh_ui 的 active-first、raw-fallback 顺序执行，不使用自写附加脚本。首次选择账号目录后，从托盘退出微信，点“自动获取密钥并连接微信”并在新窗口完成登录；日常有凭据时无需再次取钥。data/local_data 含个人密钥和缓存，不随应用分发。
 
 新环境验收：`python3 scripts/verify_clean_environment.py` 从 Git 索引复制源码至临时目录，用独立虚拟环境安装依赖，检查首次启动并运行回归测试。报告保存在 data/diagnostics/clean_environment.json。此检查不连接真实微信，不代表另一台电脑已完成微信授权；Windows 尚需目标电脑实测。
 

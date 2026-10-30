@@ -235,20 +235,28 @@ def _run_active(script: Path, args: List[str], timeout: int,
                    "-File", str(launcher)]
         else:
             outer = (
-                "Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait "
+                "$child = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru "
                 "-WindowStyle Normal -ArgumentList "
-                "@('-NoProfile','-ExecutionPolicy','Bypass','-File','{l}')"
+                "@('-NoProfile','-ExecutionPolicy','Bypass','-File','{l}'); exit $child.ExitCode"
             ).format(l=str(launcher).replace("'", "''"))
             cmd = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
                    "-Command", outer]
+        runner_detail = ""
         try:
-            subprocess.run(cmd, timeout=timeout, env=env)
+            completed = subprocess.run(cmd, timeout=timeout, env=env,
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       encoding="utf-8", errors="replace")
+            if completed.returncode:
+                safe_console = re.sub(r'(?i)[0-9a-f]{32,}', '[redacted]', completed.stdout or "")
+                runner_detail = f"\n[runner] exit_code={completed.returncode}\n{safe_console[-2000:]}"
         except subprocess.TimeoutExpired:
             logger.warning("active key script timed out after %ss", timeout)
+            runner_detail = f"\n[runner] TimeoutExpired after {timeout}s"
         except FileNotFoundError:
             logger.warning("powershell.exe not found; active extraction needs Windows")
             return ""
-        return out_path.read_text(encoding="utf-8", errors="replace") if out_path.exists() else ""
+        transcript = out_path.read_text(encoding="utf-8", errors="replace") if out_path.exists() else ""
+        return transcript + runner_detail
     finally:
         for p in (launcher, out_path):
             try:
@@ -321,7 +329,10 @@ def extract_wechat_key_active(*, weixin_dll: Optional[str] = None,
         return None
     tok = _parse_key(text, _WX_MARKERS, _validate_wechat)
     if not tok:
-        return None
+        # Diagnostics only: the caller already treats missing keys as a RuntimeError.
+        # Preserve the script's real failure while removing candidate key material.
+        detail = re.sub(r'(?i)[0-9a-f]{32,}', '[redacted]', text)
+        raise RuntimeError('WIN_ACTIVE_FAILED: ' + (detail[-6000:] or 'No script transcript was produced'))
     try:
         return bytes.fromhex(tok)
     except ValueError:

@@ -1,0 +1,3 @@
+# Upstream SHA256 values must remain identical after a Windows checkout.
+vendor/** text eol=lf
+*.bat text eol=crlf

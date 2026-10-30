@@ -3,6 +3,9 @@ chcp 65001 >nul
 setlocal EnableExtensions
 cd /d "%~dp0"
 
+rem Packaged distribution: no Python installation is required.
+if exist "GroupMessageMonitor.exe" goto packaged
+
 rem Windows equivalent of start.command.
 rem First launch without .venv automatically runs setup.bat once.
 
@@ -24,6 +27,12 @@ if defined PYTHONPATH (
 )
 
 ".venv\Scripts\python.exe" -m group_msg_monitor
+goto result
+
+:packaged
+"%~dp0GroupMessageMonitor.exe"
+
+:result
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (
   echo [错误] 程序退出码 %EXIT_CODE%

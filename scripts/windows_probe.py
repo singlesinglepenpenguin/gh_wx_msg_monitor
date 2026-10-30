@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / 'tests'))
 from test_workflow import FUGUO, make_roster, make_target, message  # noqa: E402
 from group_msg_monitor.app import App, open_path, result_summary  # noqa: E402
 from group_msg_monitor.relay_core import update_file  # noqa: E402
-from group_msg_monitor.wechat_source import account_paths, discover_accounts, initialize  # noqa: E402
+from group_msg_monitor.wechat_source import account_paths, discover_accounts  # noqa: E402
 
 
 def main():
@@ -41,15 +41,6 @@ def main():
         assert result['cleared_count'] >= 1
         assert '接龙' in result_summary(result)
 
-    init_error = None
-    if accounts:
-        with tempfile.TemporaryDirectory() as local:
-            try:
-                initialize(accounts[0], local, lambda *_: None, capture=False)
-            except ValueError as exc:
-                init_error = str(exc)
-        assert init_error and ('新版微信初始化' in init_error or '未取得密钥' in init_error), init_error
-
     app = App()
 
     def verify():
@@ -59,11 +50,24 @@ def main():
             open_path(app.output_dir)
             app._connection()
             assert app.settings_window is not None and app.settings_window.winfo_exists()
+            app.settings_window.update_idletasks()
+            def descendants(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from descendants(child)
+            init_buttons = [widget for widget in descendants(app.settings_window)
+                            if str(widget.winfo_class()) == 'TButton'
+                            and widget.cget('text') == '自动获取密钥并连接微信']
+            assert len(init_buttons) == 1
+            button = init_buttons[0]
+            relative_bottom = button.winfo_rooty() - app.settings_window.winfo_rooty() + button.winfo_height()
+            assert relative_bottom <= app.settings_window.winfo_height(), (relative_bottom, app.settings_window.winfo_height())
             print(json.dumps({
                 'gui': 'ok',
+                'init_button_visible': True,
                 'accounts': len(accounts),
                 'connection_ok': app.connection_ok,
-                'init_guidance': bool(init_error),
+                'live_key_capture': 'not performed',
                 'excel_path': 'ok',
                 'cleared_count': result['cleared_count'],
             }, ensure_ascii=False), flush=True)

@@ -9,7 +9,9 @@
     "_mac_helper.py": "bfd2b10a9df08d804e697ed3894211c1ffa630641bdc5038d26caec05cfe5f86",
     "_mac_lldb_capture.py": "f7408d28412fcbadb21d27d37a1334239a29627d7b8313b683cd767c9fe03ffc",
     "scanner_win.py": "bc7408702fca6b25398461bcb1a9c9fdc8357aa34cd3561de20b10eadd4664f8",
-    "active_key.py": "6a6ac18cc7a2bcd776932e327fae368194026eec3ac5564a7a627c0c25de76ce"
+    "active_key.py": "6a6ac18cc7a2bcd776932e327fae368194026eec3ac5564a7a627c0c25de76ce",
+    "scripts/windows_wechat_get_key.ps1": "484d004f8fc8c42bae804e2ab3314215499316679db22e4f60505835a27fcc49",
+    "scripts/windows_ntqq_get_key.ps1": "bcb2106c7ed0aa7cc51880c5a96a1b750f8514f5ab7698d160bfd0db4f929ddc"
   },
   "changes": [
     {
@@ -29,6 +31,21 @@
       "scope": "optional complete query output, raw sender-prefix display compatibility, and log callback; defaults preserved",
       "reason": "Keep upstream selection, decoding, authorization and capture triggers. full_content avoids the 500-character output summary. Optional sender_from_raw_prefix restores group-card sender from the existing raw prefix before formatting discards it; real_sender_id does not necessarily equal contact.id. Default sender behavior remains unchanged. on_log receives decrypt warnings without patching globals. With the option enabled, a missing raw prefix is shown as unverified rather than guessing from contact.id.",
       "sha256": "d5b8b8b26ffdfcb6c0e1e68ff0c53363f84c6edf103abcbbc2630ab876678c72"
+    },
+    {
+      "file": "active_key.py",
+      "scope": "Private console capture and redacted failure diagnostics, including elevated child exit code",
+      "reason": "Prevent full keys reaching inherited stdout. Preserve actual child exit/timeout and script transcript so crashes and user cancellation are distinguishable. Original process launch, authorization and key parsing are preserved.",
+      "sha256": "b2779ffa828b684c3997709b35f802f987cdd09007158a0d1b240a7f2b265a68"
+    },
+    {
+      "file": "scripts/windows_wechat_get_key.ps1",
+      "scope": "Windows cryptography backend compatibility and diagnostic output only",
+      "reason": "Use Windows CNG PBKDF2-HMAC-SHA512 with identical candidate, salt, 256000 rounds and 32-byte result; original .NET backend retained on native API unavailability. Synthetic vectors match the original backend byte-for-byte. No changes to process startup, authorization, breakpoints, candidates, scan order or validation criterion. Log only counts, elapsed time and native context errors, never candidate bytes.",
+      "sha256": "11ccc1de10cc3dd2f464dbd56e5365b4182325481c49592712b17774407acc81"
     }
-  ]
+  ],
+  "source_commit": "6d30d29603328412829013c59cd19f84343c8518",
+  "windows_source": "User-provided gh_ui_fresh/api/wechat_native, verified against source_commit",
+  "hash_format": "SHA256 of Git source bytes (LF); .gitattributes enforces LF in vendor on all platforms"
 }

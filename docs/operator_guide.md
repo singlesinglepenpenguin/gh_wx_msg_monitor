@@ -1,6 +1,8 @@
 # Operator guide
 
-1. macOS 双击根目录 start.command；Windows 双击 start.bat（首次会自动安装依赖，也可单独运行 setup.bat 重装）。微信正常保持登录。Windows 首次初始化若无法读取进程，请以管理员身份启动；微信 4.1+ 普通初始化无密钥时，完全退出微信后再用“新版微信初始化”。
+完整终端用户步骤见 [user_manual.md](user_manual.md)（Windows 分发用，无 AI 也可按手册独立操作）。
+
+1. macOS 双击根目录 start.command；Windows 双击 start.bat（首次会自动安装依赖，也可单独运行 setup.bat 重装）。日常微信正常保持登录。Windows 首次在“微信连接设置”选择账号，从托盘退出微信，再点“自动获取密钥并连接微信”，按 gh_ui 原流程允许授权并在新窗口登录一次。
 2. 选择内部通讯录和要更新的 Excel，核对基准文件、上次更新时间和本次截止时间（北京时间）。
 3. 点击“开始更新”。新表保存在 data/output，旧基准不覆盖；成功后自动切换到新表供下次接续。
 4. “打开最新结果”打开最新生成表；“查看最新记录”打开 data/records/update_YYYYMMDD_HHMMSS.txt（一轮一份）；“打开结果文件夹”打开 data/output。

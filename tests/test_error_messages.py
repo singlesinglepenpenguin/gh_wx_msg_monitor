@@ -10,6 +10,11 @@ from group_msg_monitor.error_messages import error_message, record_error
 
 
 class ErrorMessagesTests(unittest.TestCase):
+    def test_active_failure_takes_priority_over_fallback_not_running(self):
+        code, _, action = error_message(RuntimeError('WIN_ACTIVE_FAILED: original failure\n[fallback] Weixin.exe 未运行'))
+        self.assertEqual(code, 'ACTIVE_KEY_MISS')
+        self.assertIn('原始', action)
+
     def test_missing_helper_and_denied_helper_have_different_actions(self):
         missing = RuntimeError("can't open file '\"/tmp/_mac_helper.py\"': No such file or directory")
         denied = RuntimeError("can't open file '/tmp/_mac_helper.py': Operation not permitted")
