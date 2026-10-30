@@ -23,7 +23,7 @@ for source in sorted((root / 'vendor').rglob('*')):
 subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean', '--windowed',
                 '--distpath', str(dist_dir),
                 '--name', 'GroupMessageMonitor', *vendor_args,
-                '--add-data', f'{root / "data/diagnostics/error_message.md"}{separator}data/diagnostics',
+                '--add-data', f'{root / "docs/diagnostics/error_message.md"}{separator}data/diagnostics',
                 '--paths', str(root / 'vendor'),
                 '--paths', str(root / 'src'),
                 '--hidden-import', 'wechat_native.scanner_mac',
@@ -54,3 +54,5 @@ if os.name == 'nt':
             if item.is_file() and relative.parts[0] != 'data' and '__pycache__' not in relative.parts:
                 bundle.write(item, Path('GroupMessageMonitor', relative).as_posix())
     print(f'Windows package: {archive}')
+    subprocess.run([sys.executable, str(root / 'scripts/verify_distribution.py'), str(archive)],
+                   cwd=root, check=True)

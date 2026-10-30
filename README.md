@@ -60,6 +60,8 @@ $env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m unittest discover -s tests
 
 微信连接、授权、初始化、解密、群定位和查询沿用 vendor/wechat_native，保留 vendor/UPSTREAM.json 中的已记录补丁。Windows 自动取钥按 gh_ui 的 active-first、raw-fallback 顺序执行，不使用自写附加脚本。首次在连接向导确认当前账号并点“自动获取密钥并连接微信”，工具请求正常退出后自动继续授权和登录；日常有凭据时无需再次取钥。data/local_data 含个人密钥和缓存，不随应用分发。
 
+打包仅使用 docs/diagnostics/error_message.md 中的通用客户排错说明，不包含 data/diagnostics/error_message.md 开发诊断历史。Windows ZIP 生成后自动检查个人运行文件、账号标识及文档内的本机绝对路径，检查失败则打包命令报错。
+
 新环境验收：`python3 scripts/verify_clean_environment.py` 从 Git 索引复制源码至临时目录，用独立虚拟环境安装依赖，检查首次启动并运行回归测试。报告保存在 data/diagnostics/clean_environment.json。此检查不连接真实微信，不代表另一台电脑已完成微信授权；Windows 尚需目标电脑实测。
 
 本轮结果及验收边界见 [environment validation](docs/environment_validation.md)。
